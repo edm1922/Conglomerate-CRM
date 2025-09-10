@@ -29,7 +29,7 @@ export function TopNavbar() {
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
         <div>
           <h1 className="text-lg font-semibold text-foreground">
-            Real Estate CRM
+            Conglomerate Realty CRM
           </h1>
           <p className="text-sm text-muted-foreground">
             Welcome back, John Doe

@@ -51,13 +51,13 @@ export function AppSidebar() {
     <Sidebar className={collapsed ? "w-14" : "w-64"}>
       <SidebarHeader className="p-6 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-            <Home className="w-4 h-4 text-white" />
+          <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
+            <Home className="w-5 h-5 text-white" />
           </div>
           {!collapsed && (
             <div>
-              <h2 className="font-bold text-lg text-primary">RealEstate CRM</h2>
-              <p className="text-sm text-muted-foreground">Residential Lots</p>
+              <h2 className="font-bold text-lg text-primary">Conglomerate Realty</h2>
+              <p className="text-sm text-muted-foreground">Residential Lots CRM</p>
             </div>
           )}
         </div>
