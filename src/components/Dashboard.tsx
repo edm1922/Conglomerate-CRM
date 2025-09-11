@@ -5,7 +5,6 @@ import {
   Users,
   Building,
   Calendar,
-  DollarSign,
   TrendingUp,
   Clock,
   CheckCircle,
@@ -76,7 +75,7 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Payments</CardTitle>
-            <DollarSign className="h-4 w-4 text-success" />
+            <span className="text-lg font-bold text-success">₱</span>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{todayStats.payments}</div>

@@ -24,7 +24,6 @@ import {
   Filter,
   MapPin,
   Ruler,
-  DollarSign,
   Plus,
 } from "lucide-react";
 
@@ -295,7 +294,7 @@ export default function Inventory() {
               </div>
               
               <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-bold text-muted-foreground">₱</span>
                 <span className="font-semibold text-lg">{formatPrice(lot.price)}</span>
               </div>
               

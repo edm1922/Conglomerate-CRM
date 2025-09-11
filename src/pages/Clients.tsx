@@ -27,7 +27,6 @@ import {
   FileText,
   Upload,
   Building,
-  DollarSign,
   Eye,
   Download,
 } from "lucide-react";

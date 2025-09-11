@@ -28,7 +28,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  DollarSign,
   Plus,
   Receipt,
   Download,
@@ -146,7 +145,7 @@ export default function Payments() {
       "Cheque": Receipt,
     } as const;
 
-    const Icon = icons[method as keyof typeof icons] || DollarSign;
+    const Icon = icons[method as keyof typeof icons] || Banknote;
     return <Icon className="w-4 h-4" />;
   };
 
@@ -253,7 +252,7 @@ export default function Payments() {
                 <p className="text-sm text-muted-foreground">Today's Collection</p>
                 <p className="text-2xl font-bold">{formatCurrency(todayStats.totalCollected)}</p>
               </div>
-              <DollarSign className="w-8 h-8 text-success" />
+              <span className="text-2xl font-bold text-success">₱</span>
             </div>
           </CardContent>
         </Card>

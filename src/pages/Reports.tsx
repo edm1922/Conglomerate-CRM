@@ -24,7 +24,6 @@ import {
   Download,
   FileText,
   TrendingUp,
-  DollarSign,
   Users,
   Building,
   Calendar,
@@ -125,7 +124,7 @@ export default function Reports() {
     { id: "daily-sales", name: "Daily Sales Report", icon: BarChart3 },
     { id: "inventory", name: "Inventory Report", icon: Building },
     { id: "leads", name: "Leads Report", icon: Users },
-    { id: "payments", name: "Payments Report", icon: DollarSign },
+    { id: "payments", name: "Payments Report", icon: TrendingUp },
   ];
 
   return (
@@ -194,7 +193,7 @@ export default function Reports() {
                     <p className="text-sm text-muted-foreground">Total Sales</p>
                     <p className="text-2xl font-bold">{formatCurrency(dailySalesData.totalSales)}</p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-success" />
+                  <span className="text-2xl font-bold text-success">₱</span>
                 </div>
               </CardContent>
             </Card>

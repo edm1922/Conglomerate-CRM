@@ -16,7 +16,6 @@ import {
   Settings,
   LogOut,
   UserPlus,
-  DollarSign,
   Calendar,
 } from "lucide-react";
 
@@ -45,7 +44,7 @@ export function TopNavbar() {
             Add Lead
           </Button>
           <Button variant="outline" size="sm" className="gap-2">
-            <DollarSign className="w-4 h-4" />
+            <span className="text-sm font-bold">₱</span>
             Add Payment
           </Button>
           <Button variant="outline" size="sm" className="gap-2">
