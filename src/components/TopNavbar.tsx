@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { signOut, getSession, onAuthStateChange } from "@/services/auth";
 import {
   Plus,
   Bell,
@@ -21,6 +22,21 @@ import {
 
 export function TopNavbar() {
   const [notifications] = useState(3);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+
+  useEffect(() => {
+    getSession().then((session) => {
+      const user = session?.user;
+      setDisplayName(user?.user_metadata?.full_name || user?.email || null);
+    });
+    const sub = onAuthStateChange((session) => {
+      const user = session?.user;
+      setDisplayName(user?.user_metadata?.full_name || user?.email || null);
+    });
+    return () => {
+      sub.unsubscribe?.();
+    };
+  }, []);
 
   return (
     <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 shadow-sm">
@@ -31,7 +47,7 @@ export function TopNavbar() {
             Conglomerate Realty CRM
           </h1>
           <p className="text-sm text-muted-foreground">
-            Welcome back, John Doe
+            {displayName ? `Welcome back, ${displayName}` : "Welcome"}
           </p>
         </div>
       </div>
@@ -91,7 +107,7 @@ export function TopNavbar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="gap-2">
               <User className="w-4 h-4" />
-              <span className="hidden md:inline">John Doe</span>
+              <span className="hidden md:inline">{displayName || "Account"}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -104,7 +120,7 @@ export function TopNavbar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOut()}>
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </DropdownMenuItem>

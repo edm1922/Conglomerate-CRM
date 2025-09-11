@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { uploadClientDocument, createSignedUrl } from "@/services/storage";
+import { insertDocumentRecord, createClient, listDocumentsByClient } from "@/services/clients";
 import {
   UserCircle,
   Search,
@@ -62,7 +65,9 @@ interface Client {
 }
 
 export default function Clients() {
-  const [clients] = useState<Client[]>([
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [clients, setClients] = useState<Client[]>([
     {
       id: "1",
       name: "Sofia Reyes",
@@ -121,6 +126,42 @@ export default function Clients() {
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", address: "" });
+  const [creatingClient, setCreatingClient] = useState(false);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file || !selectedClient) return;
+      // Ensure we have a UUID client id. If demo data has string numeric ids, create a real client row to own the file.
+      const clientUuid = /^[0-9a-fA-F-]{36}$/.test(selectedClient.id)
+        ? selectedClient.id
+        : await createClient({ name: selectedClient.name, email: selectedClient.email, phone: selectedClient.phone, address: selectedClient.address });
+
+      const { filePath } = await uploadClientDocument(clientUuid, file);
+      await insertDocumentRecord({
+        client_id: clientUuid,
+        file_name: file.name,
+        file_path: filePath,
+        file_type: file.type || "application/octet-stream",
+        file_size: file.size,
+        status: "pending",
+      });
+
+      // Refresh document list from DB for this client
+      const fresh = await listDocumentsByClient(clientUuid);
+      setClients((prev) => prev.map((c) => (c.id === selectedClient.id ? { ...c, documents: fresh.map((d: any) => ({ type: d.file_type, fileName: d.file_name, uploadDate: new Date(d.uploaded_at).toISOString().slice(0,10), status: d.status === 'verified' ? 'Verified' : 'Pending' })) } : c)));
+
+      toast({ title: "Document uploaded", description: file.name });
+      e.target.value = "";
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    }
+  };
 
   const filteredClients = clients.filter((client) =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,21 +215,49 @@ export default function Clients() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="clientName">Full Name</Label>
-                <Input id="clientName" placeholder="Enter full name" />
+                <Input id="clientName" placeholder="Enter full name" value={newClient.name} onChange={(e) => setNewClient((c) => ({ ...c, name: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="clientEmail">Email</Label>
-                <Input id="clientEmail" type="email" placeholder="Enter email address" />
+                <Input id="clientEmail" type="email" placeholder="Enter email address" value={newClient.email} onChange={(e) => setNewClient((c) => ({ ...c, email: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="clientPhone">Phone Number</Label>
-                <Input id="clientPhone" placeholder="Enter phone number" />
+                <Input id="clientPhone" placeholder="Enter phone number" value={newClient.phone} onChange={(e) => setNewClient((c) => ({ ...c, phone: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="clientAddress">Address</Label>
-                <Input id="clientAddress" placeholder="Enter complete address" />
+                <Input id="clientAddress" placeholder="Enter complete address" value={newClient.address} onChange={(e) => setNewClient((c) => ({ ...c, address: e.target.value }))} />
               </div>
-              <Button className="w-full">Add Client</Button>
+              <Button className="w-full" disabled={creatingClient} onClick={async () => {
+                try {
+                  setCreatingClient(true);
+                  if (!newClient.name) return;
+                  const id = await createClient({ name: newClient.name, email: newClient.email, phone: newClient.phone, address: newClient.address });
+                  setClients((prev) => [
+                    {
+                      id,
+                      name: newClient.name,
+                      email: newClient.email,
+                      phone: newClient.phone,
+                      address: newClient.address,
+                      status: "Active",
+                      dateRegistered: new Date().toISOString().slice(0,10),
+                      totalInvestment: 0,
+                      bookedLots: [],
+                      documents: [],
+                      paymentHistory: [],
+                    },
+                    ...prev,
+                  ]);
+                  setNewClient({ name: "", email: "", phone: "", address: "" });
+                  toast({ title: "Client added" });
+                } catch (err: any) {
+                  toast({ title: "Failed to add client", description: err.message, variant: "destructive" });
+                } finally {
+                  setCreatingClient(false);
+                }
+              }}> {creatingClient ? "Adding..." : "Add Client"} </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -310,7 +379,13 @@ export default function Clients() {
               <TabsContent value="documents" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-semibold">KYC Documents</h3>
-                  <Button size="sm" className="gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <Button size="sm" className="gap-2" onClick={handleUploadClick}>
                     <Upload className="w-4 h-4" />
                     Upload Document
                   </Button>
@@ -337,7 +412,19 @@ export default function Clients() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                // Note: in mock data we don't have file_path; this will work for uploaded ones
+                                const signedUrl = await createSignedUrl(`${selectedClient.id}/${doc.fileName}`);
+                                window.open(signedUrl, "_blank");
+                              } catch {
+                                // ignore for mock rows
+                              }
+                            }}
+                          >
                             <Download className="w-4 h-4" />
                           </Button>
                         </TableCell>

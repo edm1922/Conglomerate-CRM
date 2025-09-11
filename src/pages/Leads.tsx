@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listLeads, createLead, onLeadsChange } from "@/services/leads";
 import {
   Table,
   TableBody,
@@ -38,79 +41,40 @@ import {
   Eye,
 } from "lucide-react";
 
-interface Lead {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  source: string;
-  status: string;
-  dateCreated: string;
-  lastContact: string;
-  notes: string;
-}
+import type { Lead as LeadEntity } from "@/types/entities";
+
+type Lead = LeadEntity;
 
 export default function Leads() {
-  const [leads] = useState<Lead[]>([
-    {
-      id: "1",
-      name: "Maria Santos",
-      email: "maria.santos@email.com",
-      phone: "+63 917 123 4567",
-      source: "Facebook",
-      status: "New",
-      dateCreated: "2024-01-15",
-      lastContact: "2024-01-15",
-      notes: "Interested in 200sqm lot, budget 500k-800k",
-    },
-    {
-      id: "2",
-      name: "Juan Dela Cruz",
-      email: "juan.delacruz@email.com",
-      phone: "+63 918 234 5678",
-      source: "Walk-in",
-      status: "Site Visit",
-      dateCreated: "2024-01-14",
-      lastContact: "2024-01-16",
-      notes: "Visited site, interested in Block 5",
-    },
-    {
-      id: "3",
-      name: "Anna Rodriguez",
-      email: "anna.rodriguez@email.com",
-      phone: "+63 919 345 6789",
-      source: "Referral",
-      status: "Contacted",
-      dateCreated: "2024-01-13",
-      lastContact: "2024-01-15",
-      notes: "Referred by existing client Mr. Garcia",
-    },
-    {
-      id: "4",
-      name: "Carlos Miranda",
-      email: "carlos.miranda@email.com",
-      phone: "+63 920 456 7890",
-      source: "Google",
-      status: "Reserved",
-      dateCreated: "2024-01-10",
-      lastContact: "2024-01-14",
-      notes: "Reserved Block 3, Lot 8. Waiting for documents",
-    },
-    {
-      id: "5",
-      name: "Sofia Reyes",
-      email: "sofia.reyes@email.com",
-      phone: "+63 921 567 8901",
-      source: "Facebook",
-      status: "Closed",
-      dateCreated: "2024-01-08",
-      lastContact: "2024-01-12",
-      notes: "Successfully closed. Block 7, Lot 3",
-    },
-  ]);
-
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: leads = [], isLoading } = useQuery({
+    queryKey: ["leads"],
+    queryFn: listLeads,
+  });
+
+  useEffect(() => {
+    const channel = onLeadsChange(() => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    });
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [queryClient]);
+
+  const { register, handleSubmit, reset } = useForm<{ name: string; email?: string; phone?: string; source: string; notes?: string; }>();
+
+  const createMutation = useMutation({
+    mutationFn: createLead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      reset();
+      setDialogOpen(false);
+    },
+  });
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -146,13 +110,15 @@ export default function Leads() {
     );
   };
 
-  const filteredLeads = leads.filter((lead) => {
-    const matchesStatus = selectedStatus === "all" || lead.status === selectedStatus;
-    const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.phone.includes(searchTerm);
-    return matchesStatus && matchesSearch;
-  });
+  const filteredLeads = useMemo(() => {
+    return leads.filter((lead) => {
+      const matchesStatus = selectedStatus === "all" || (lead.status || "").toLowerCase() === selectedStatus.toLowerCase();
+      const matchesSearch = (lead.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (lead.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (lead.phone || "").includes(searchTerm);
+      return matchesStatus && matchesSearch;
+    });
+  }, [leads, searchTerm, selectedStatus]);
 
   return (
     <div className="space-y-6">
@@ -164,7 +130,7 @@ export default function Leads() {
             Manage and track potential clients
           </p>
         </div>
-        <Dialog>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <UserPlus className="w-4 h-4" />
@@ -175,39 +141,56 @@ export default function Leads() {
             <DialogHeader>
               <DialogTitle>Add New Lead</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <form
+              className="space-y-4"
+              onSubmit={handleSubmit((values) =>
+                createMutation.mutate({
+                  name: values.name,
+                  email: values.email,
+                  phone: values.phone,
+                  source: values.source || "Facebook",
+                  notes: values.notes,
+                })
+              )}
+            >
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="Enter full name" />
+                <Input id="name" placeholder="Enter full name" {...register("name", { required: true })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="Enter email address" />
+                <Input id="email" type="email" placeholder="Enter email address" {...register("email")} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" placeholder="Enter phone number" />
+                <Input id="phone" placeholder="Enter phone number" {...register("phone")} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="source">Source</Label>
-                <Select>
+                <Select onValueChange={(v) => {
+                  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                  // @ts-ignore
+                  register("source").onChange({ target: { value: v } });
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="facebook">Facebook</SelectItem>
-                    <SelectItem value="google">Google</SelectItem>
-                    <SelectItem value="walk-in">Walk-in</SelectItem>
-                    <SelectItem value="referral">Referral</SelectItem>
+                    <SelectItem value="Facebook">Facebook</SelectItem>
+                    <SelectItem value="Google">Google</SelectItem>
+                    <SelectItem value="Walk-in">Walk-in</SelectItem>
+                    <SelectItem value="Referral">Referral</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" placeholder="Additional notes..." />
+                <Textarea id="notes" placeholder="Additional notes..." {...register("notes")} />
               </div>
-              <Button className="w-full">Add Lead</Button>
-            </div>
+              <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
+                {createMutation.isLoading ? "Adding..." : "Add Lead"}
+              </Button>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -250,7 +233,7 @@ export default function Leads() {
       {/* Leads Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Leads ({filteredLeads.length})</CardTitle>
+          <CardTitle>All Leads ({isLoading ? "..." : filteredLeads.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -266,7 +249,7 @@ export default function Leads() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLeads.map((lead) => (
+              {(!isLoading ? filteredLeads : []).map((lead) => (
                 <TableRow key={lead.id}>
                   <TableCell>
                     <div>
@@ -289,9 +272,16 @@ export default function Leads() {
                     </div>
                   </TableCell>
                   <TableCell>{getSourceBadge(lead.source)}</TableCell>
-                  <TableCell>{getStatusBadge(lead.status)}</TableCell>
-                  <TableCell>{lead.dateCreated}</TableCell>
-                  <TableCell>{lead.lastContact}</TableCell>
+                  <TableCell>{getStatusBadge(
+                    (lead.status || "New")
+                      .replace("site_visit", "Site Visit")
+                      .replace("new", "New")
+                      .replace("contacted", "Contacted")
+                      .replace("reserved", "Reserved")
+                      .replace("closed", "Closed")
+                  )}</TableCell>
+                  <TableCell>{new Date(lead.created_at).toISOString().slice(0,10)}</TableCell>
+                  <TableCell>{new Date(lead.updated_at).toISOString().slice(0,10)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button variant="ghost" size="sm">
