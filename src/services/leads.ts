@@ -61,6 +61,34 @@ export async function deleteLead(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function convertLeadToClient(leadId: string): Promise<{ clientId: string; updatedLead: Lead }> {
+  // Get the lead data
+  const lead = await getLead(leadId);
+  if (!lead) {
+    throw new Error("Lead not found");
+  }
+
+  // Create client from lead data
+  const { createClient } = await import("./clients");
+  const client = await createClient({
+    name: lead.name,
+    email: lead.email || undefined,
+    phone: lead.phone || undefined,
+    status: "active",
+  });
+
+  // Update lead status to converted
+  const updatedLead = await updateLead(leadId, {
+    status: "converted",
+    notes: lead.notes ? `${lead.notes}\n\nConverted to client on ${new Date().toISOString()}` : `Converted to client on ${new Date().toISOString()}`
+  });
+
+  return {
+    clientId: client.id,
+    updatedLead
+  };
+}
+
 export function onLeadsChange(callback: (payload: Lead) => void) {
   return supabase
     .channel("leads-realtime")
@@ -73,5 +101,3 @@ export function onLeadsChange(callback: (payload: Lead) => void) {
     )
     .subscribe();
 }
-
-

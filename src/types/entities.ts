@@ -13,7 +13,7 @@ export interface Lead {
   email?: string;
   phone?: string;
   source: string;
-  status: "new" | "contacted" | "site_visit" | "reserved" | "closed";
+  status: "new" | "contacted" | "site_visit" | "reserved" | "closed" | "converted";
   notes?: string;
   assigned_to?: string; // profiles.id
   created_at: string;
@@ -101,5 +101,3 @@ export interface Document {
   status: "pending" | "verified";
   uploaded_at: string;
 }
-
-

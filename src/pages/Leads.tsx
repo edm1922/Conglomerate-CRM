@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listLeads, createLead, updateLead, deleteLead, onLeadsChange } from "@/services/leads";
+import { listLeads, createLead, updateLead, deleteLead, onLeadsChange, convertLeadToClient } from "@/services/leads";
 import { useAppStore } from "@/stores";
 import { CreateLeadSchema, type CreateLead } from "@/types/validation";
 import {
@@ -42,6 +42,7 @@ import {
   MoreHorizontal,
   Edit,
   Eye,
+  UserCheck,
 } from "lucide-react";
 
 import type { Lead as LeadEntity } from "@/types/entities";
@@ -126,6 +127,18 @@ export default function Leads() {
     },
   });
 
+  const convertMutation = useMutation({
+    mutationFn: convertLeadToClient,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      alert(`Lead converted to client successfully! Client ID: ${result.clientId}`);
+    },
+    onError: (error) => {
+      alert(`Failed to convert lead: ${error.message}`);
+    },
+  });
+
   const getStatusBadge = (status: string) => {
     const variants = {
       New: "default",
@@ -133,6 +146,7 @@ export default function Leads() {
       "Site Visit": "outline",
       Reserved: "warning",
       Closed: "success",
+      Converted: "success",
     } as const;
 
     return (
@@ -281,6 +295,7 @@ export default function Leads() {
                   <SelectItem value="Site Visit">Site Visit</SelectItem>
                   <SelectItem value="Reserved">Reserved</SelectItem>
                   <SelectItem value="Closed">Closed</SelectItem>
+                  <SelectItem value="Converted">Converted</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -337,6 +352,7 @@ export default function Leads() {
                       .replace("contacted", "Contacted")
                       .replace("reserved", "Reserved")
                       .replace("closed", "Closed")
+                      .replace("converted", "Converted")
                   )}</TableCell>
                   <TableCell>{new Date(lead.created_at).toISOString().slice(0,10)}</TableCell>
                   <TableCell>{new Date(lead.updated_at).toISOString().slice(0,10)}</TableCell>
@@ -362,6 +378,21 @@ export default function Leads() {
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
+                      {lead.status !== "converted" && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            if (confirm(`Convert lead "${lead.name}" to client?`)) {
+                              convertMutation.mutate(lead.id);
+                            }
+                          }}
+                          disabled={convertMutation.isLoading}
+                          title="Convert to Client"
+                        >
+                          <UserCheck className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button 
                         variant="ghost" 
                         size="sm"
