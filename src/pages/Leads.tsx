@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listLeads, createLead, onLeadsChange } from "@/services/leads";
+import { listLeads, createLead, updateLead, deleteLead, onLeadsChange } from "@/services/leads";
+import { useAppStore } from "@/stores";
+import { CreateLeadSchema, type CreateLead } from "@/types/validation";
 import {
   Table,
   TableBody,
@@ -47,14 +50,37 @@ type Lead = LeadEntity;
 
 export default function Leads() {
   const queryClient = useQueryClient();
+  const {
+    leads,
+    filters,
+    setLeads,
+    addLead,
+    setLeadFilter,
+    setLoading
+  } = useAppStore();
+  
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [viewingLead, setViewingLead] = useState<Lead | null>(null);
+  const selectedStatus = filters.leads.status;
+  const searchTerm = filters.leads.search;
 
-  const { data: leads = [], isLoading } = useQuery({
+  const { data: leadsData = [], isLoading } = useQuery({
     queryKey: ["leads"],
     queryFn: listLeads,
   });
+  
+  useEffect(() => {
+    if (leadsData.length > 0) {
+      setLeads(leadsData);
+    }
+  }, [leadsData, setLeads]);
+  
+  useEffect(() => {
+    setLoading('leads', isLoading);
+  }, [isLoading, setLoading]);
 
   useEffect(() => {
     const channel = onLeadsChange(() => {
@@ -65,14 +91,38 @@ export default function Leads() {
     };
   }, [queryClient]);
 
-  const { register, handleSubmit, reset } = useForm<{ name: string; email?: string; phone?: string; source: string; notes?: string; }>();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateLead>({
+    resolver: zodResolver(CreateLeadSchema),
+    defaultValues: {
+      status: 'new',
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: createLead,
-    onSuccess: () => {
+    onSuccess: (newLead) => {
+      addLead(newLead);
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       reset();
       setDialogOpen(false);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Lead> }) => updateLead(id, data),
+    onSuccess: (updatedLead) => {
+      updateLead(updatedLead.id, updatedLead);
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      setEditDialogOpen(false);
+      setEditingLead(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteLead,
+    onSuccess: (_, deletedId) => {
+      deleteLead(deletedId);
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
     },
   });
 
@@ -143,23 +193,32 @@ export default function Leads() {
             </DialogHeader>
             <form
               className="space-y-4"
-              onSubmit={handleSubmit((values) =>
-                createMutation.mutate({
-                  name: values.name,
-                  email: values.email,
-                  phone: values.phone,
-                  source: values.source || "Facebook",
-                  notes: values.notes,
-                })
-              )}
+              onSubmit={handleSubmit((values) => createMutation.mutate(values))}
             >
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="Enter full name" {...register("name", { required: true })} />
+                <Input 
+                  id="name" 
+                  placeholder="Enter full name" 
+                  {...register("name")} 
+                  className={errors.name ? "border-red-500" : ""}
+                />
+                {errors.name && (
+                  <p className="text-sm text-red-500">{errors.name.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="Enter email address" {...register("email")} />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="Enter email address" 
+                  {...register("email")} 
+                  className={errors.email ? "border-red-500" : ""}
+                />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
@@ -167,12 +226,8 @@ export default function Leads() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="source">Source</Label>
-                <Select onValueChange={(v) => {
-                  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                  // @ts-ignore
-                  register("source").onChange({ target: { value: v } });
-                }}>
-                  <SelectTrigger>
+                <Select onValueChange={(v) => register("source").onChange({ target: { value: v } })}>
+                  <SelectTrigger className={errors.source ? "border-red-500" : ""}>
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
                   <SelectContent>
@@ -182,6 +237,9 @@ export default function Leads() {
                     <SelectItem value="Referral">Referral</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.source && (
+                  <p className="text-sm text-red-500">{errors.source.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
@@ -205,13 +263,13 @@ export default function Leads() {
                 <Input
                   placeholder="Search leads by name, email, or phone..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => setLeadFilter('search', e.target.value)}
                   className="pl-10"
                 />
               </div>
             </div>
             <div className="flex gap-2">
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <Select value={selectedStatus} onValueChange={(value) => setLeadFilter('status', value)}>
                 <SelectTrigger className="w-[180px]">
                   <Filter className="w-4 h-4 mr-2" />
                   <SelectValue placeholder="Filter by status" />
@@ -284,13 +342,35 @@ export default function Leads() {
                   <TableCell>{new Date(lead.updated_at).toISOString().slice(0,10)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setViewingLead(lead);
+                          setViewDialogOpen(true);
+                        }}
+                      >
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setEditingLead(lead);
+                          setEditDialogOpen(true);
+                        }}
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Delete lead "${lead.name}"?`)) {
+                            deleteMutation.mutate(lead.id);
+                          }
+                        }}
+                      >
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </div>

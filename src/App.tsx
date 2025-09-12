@@ -15,12 +15,16 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import { useEffect, useState } from "react";
 import { getSession, onAuthStateChange } from "@/services/auth";
+import { useLocalStorageSync } from "@/hooks/useLocalStorageSync";
 
 const queryClient = new QueryClient();
 
 const App = () => {
   const [loading, setLoading] = useState(true);
   const [isAuthed, setIsAuthed] = useState(false);
+  
+  // Sync store changes to localStorage
+  useLocalStorageSync();
 
   useEffect(() => {
     getSession().then((session) => {
