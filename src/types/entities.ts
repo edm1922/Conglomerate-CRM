@@ -16,6 +16,7 @@ export interface Lead {
   status: "new" | "contacted" | "site_visit" | "reserved" | "closed" | "converted";
   notes?: string;
   assigned_to?: string; // profiles.id
+  score?: number;
   created_at: string;
   updated_at: string;
 }
@@ -100,4 +101,15 @@ export interface Document {
   file_size?: number;
   status: "pending" | "verified";
   uploaded_at: string;
+}
+
+export interface Reminder {
+  id: string;
+  lead_id: string;
+  user_id: string;
+  reminder_date: string;
+  notes?: string;
+  status: "pending" | "completed";
+  created_at: string;
+  updated_at: string;
 }

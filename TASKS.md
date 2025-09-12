@@ -71,10 +71,10 @@
   - Create lead conversion to client process (pending)
   - **Estimated Time:** 8 hours
 
-- [ ] **Add lead tracking features**
-  - Implement lead source tracking
-  - Add lead scoring system
-  - Create follow-up reminders
+- [x] **Add lead tracking features**
+  - [x] Implement lead source tracking ✓
+  - [x] Add lead scoring system ✓
+  - [ ] Create follow-up reminders
   - **Estimated Time:** 6 hours
 
 - [ ] **Lead communication**

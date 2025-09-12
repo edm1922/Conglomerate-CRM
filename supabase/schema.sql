@@ -23,6 +23,7 @@ create table if not exists public.leads (
   status text default 'new',
   notes text,
   assigned_to uuid references public.profiles(id),
+  score integer default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -115,6 +116,18 @@ create table if not exists public.documents (
   uploaded_at timestamptz default now()
 );
 
+-- Reminders
+create table if not exists public.reminders (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references public.leads(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete cascade,
+  reminder_date timestamptz not null,
+  notes text,
+  status text default 'pending', -- pending, completed
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- Enable Row Level Security
 alter table public.profiles enable row level security;
 alter table public.leads enable row level security;
@@ -124,6 +137,7 @@ alter table public.payments enable row level security;
 alter table public.appointments enable row level security;
 alter table public.tasks enable row level security;
 alter table public.documents enable row level security;
+alter table public.reminders enable row level security;
 
 -- Basic policies (adjust to your needs)
 create policy "view_own_profile" on public.profiles for select using (auth.uid() = id);
@@ -133,7 +147,9 @@ create policy "leads_read_all" on public.leads for select using (auth.role() = '
 create policy "leads_write" on public.leads for insert with check (auth.role() = 'authenticated');
 create policy "leads_update" on public.leads for update using (auth.role() = 'authenticated');
 
+create policy "reminders_read_all" on public.reminders for select using (auth.role() = 'authenticated');
+create policy "reminders_write" on public.reminders for insert with check (auth.role() = 'authenticated');
+create policy "reminders_update" on public.reminders for update using (auth.role() = 'authenticated');
+
 -- Storage bucket setup (run via SQL or the dashboard)
 -- insert into storage.buckets (id, name, public) values ('documents', 'documents', false) on conflict do nothing;
-
-

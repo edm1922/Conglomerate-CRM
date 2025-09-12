@@ -22,12 +22,13 @@ export const UpdateProfileSchema = CreateProfileSchema.partial();
 export const LeadSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1, "Name is required"),
-  email: z.string().email().optional(),
+  email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
   source: z.string().min(1, "Source is required"),
-  status: z.enum(["new", "contacted", "site_visit", "reserved", "closed"]),
+  status: z.enum(["new", "contacted", "site_visit", "reserved", "closed", "converted"]),
   notes: z.string().optional(),
   assigned_to: z.string().uuid().optional(),
+  score: z.number().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -37,7 +38,7 @@ export const CreateLeadSchema = LeadSchema.omit({
   created_at: true,
   updated_at: true,
 }).extend({
-  status: z.enum(["new", "contacted", "site_visit", "reserved", "closed"]).default("new"),
+  status: z.enum(["new", "contacted", "site_visit", "reserved", "closed", "converted"]).default("new"),
 });
 
 export const UpdateLeadSchema = CreateLeadSchema.partial();
@@ -192,6 +193,28 @@ export const CreateDocumentSchema = DocumentSchema.omit({
 
 export const UpdateDocumentSchema = CreateDocumentSchema.partial();
 
+// Reminder schemas
+export const ReminderSchema = z.object({
+  id: z.string().uuid(),
+  lead_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  reminder_date: z.string(),
+  notes: z.string().optional(),
+  status: z.enum(["pending", "completed"]),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const CreateReminderSchema = ReminderSchema.omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+}).extend({
+  status: z.enum(["pending", "completed"]).default("pending"),
+});
+
+export const UpdateReminderSchema = CreateReminderSchema.partial();
+
 // Export types from schemas
 export type Profile = z.infer<typeof ProfileSchema>;
 export type CreateProfile = z.infer<typeof CreateProfileSchema>;
@@ -224,3 +247,7 @@ export type UpdateTask = z.infer<typeof UpdateTaskSchema>;
 export type Document = z.infer<typeof DocumentSchema>;
 export type CreateDocument = z.infer<typeof CreateDocumentSchema>;
 export type UpdateDocument = z.infer<typeof UpdateDocumentSchema>;
+
+export type Reminder = z.infer<typeof ReminderSchema>;
+export type CreateReminder = z.infer<typeof CreateReminderSchema>;
+export type UpdateReminder = z.infer<typeof UpdateReminderSchema>;

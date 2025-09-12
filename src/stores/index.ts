@@ -39,6 +39,7 @@ interface AppState {
     leads: {
       status: string;
       search: string;
+      source: string;
     };
     clients: {
       status: string;
@@ -134,6 +135,7 @@ const initialState = {
     leads: {
       status: 'all',
       search: '',
+      source: 'all',
     },
     clients: {
       status: 'all',
