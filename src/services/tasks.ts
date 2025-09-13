@@ -2,134 +2,62 @@ import { supabase } from "./supabase";
 import type { Task } from "@/types/entities";
 import type { CreateTask, UpdateTask } from "@/types/validation";
 
-const TABLE = "tasks";
+const TASKS_TABLE = "tasks";
 
+// Task CRUD operations
 export async function listTasks(): Promise<Task[]> {
   const { data, error } = await supabase
-    .from(TABLE)
-    .select(`
-      *,
-      profiles!assigned_to (full_name, email)
-    `)
-    .order("created_at", { ascending: false });
+    .from(TASKS_TABLE)
+    .select("*, profiles(full_name)")
+    .order("due_date", { ascending: true });
   if (error) throw error;
-  return data as Task[];
+  return data as unknown as Task[];
 }
 
 export async function getTask(id: string): Promise<Task | null> {
   const { data, error } = await supabase
-    .from(TABLE)
-    .select(`
-      *,
-      profiles!assigned_to (full_name, email)
-    `)
+    .from(TASKS_TABLE)
+    .select("*, profiles(full_name)")
     .eq("id", id)
     .single();
   if (error) throw error;
-  return data as Task;
+  return data as unknown as Task;
 }
 
 export async function createTask(input: CreateTask): Promise<Task> {
-  const payload = { 
-    status: "pending", 
-    priority: "medium",
-    ...input 
-  };
   const { data, error } = await supabase
-    .from(TABLE)
-    .insert(payload)
-    .select("*")
+    .from(TASKS_TABLE)
+    .insert(input)
+    .select("*, profiles(full_name)")
     .single();
   if (error) throw error;
-  return data as Task;
+  return data as unknown as Task;
 }
 
 export async function updateTask(id: string, input: UpdateTask): Promise<Task> {
   const { data, error } = await supabase
-    .from(TABLE)
+    .from(TASKS_TABLE)
     .update(input)
     .eq("id", id)
-    .select("*")
+    .select("*, profiles(full_name)")
     .single();
   if (error) throw error;
-  return data as Task;
+  return data as unknown as Task;
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  const { error } = await supabase.from(TASKS_TABLE).delete().eq("id", id);
   if (error) throw error;
 }
 
-export async function getTasksByUser(userId: string): Promise<Task[]> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("*")
-    .eq("assigned_to", userId)
-    .order("due_date", { ascending: true })
-    .order("priority", { ascending: false });
-  if (error) throw error;
-  return data as Task[];
-}
-
-export async function getPendingTasks(): Promise<Task[]> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select(`
-      *,
-      profiles!assigned_to (full_name, email)
-    `)
-    .in("status", ["pending", "in_progress"])
-    .order("due_date", { ascending: true })
-    .order("priority", { ascending: false });
-  if (error) throw error;
-  return data as Task[];
-}
-
-export async function getOverdueTasks(): Promise<Task[]> {
-  const today = new Date().toISOString().split('T')[0];
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select(`
-      *,
-      profiles!assigned_to (full_name, email)
-    `)
-    .lt("due_date", today)
-    .in("status", ["pending", "in_progress"])
-    .order("due_date", { ascending: true });
-  if (error) throw error;
-  return data as Task[];
-}
-
-export async function startTask(id: string): Promise<Task> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .update({ status: "in_progress" })
-    .eq("id", id)
-    .select("*")
-    .single();
-  if (error) throw error;
-  return data as Task;
-}
-
-export async function completeTask(id: string): Promise<Task> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .update({ status: "completed" })
-    .eq("id", id)
-    .select("*")
-    .single();
-  if (error) throw error;
-  return data as Task;
-}
-
-export function onTasksChange(callback: (payload: Task) => void) {
+export function onTasksChange(callback: (payload: any) => void) {
   return supabase
-    .channel("tasks-realtime")
+    .channel('tasks-realtime')
     .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: TABLE },
+      'postgres_changes',
+      { event: '*', schema: 'public', table: TASKS_TABLE },
       (payload) => {
-        callback(payload.new as Task);
+        callback(payload);
       }
     )
     .subscribe();

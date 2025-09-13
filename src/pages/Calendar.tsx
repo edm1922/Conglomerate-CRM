@@ -1,17 +1,26 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listAppointments, createAppointment, updateAppointment, deleteAppointment } from "@/services/appointments";
+import { listTasks, createTask, updateTask, deleteTask } from "@/services/tasks";
+import { listClients } from "@/services/clients";
+import { useAppStore } from "@/stores";
+import { CreateAppointmentSchema, type CreateAppointment, type UpdateAppointment } from "@/types/validation";
+import { CreateTaskSchema, type CreateTask, type UpdateTask } from "@/types/validation";
+import { Appointment as AppointmentEntity, Task as TaskEntity, Client as ClientEntity, Profile as ProfileEntity } from "@/types/entities";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -19,6 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -28,134 +46,143 @@ import {
   CheckCircle,
   AlertCircle,
   Building,
+  Trash2,
+  Edit,
 } from "lucide-react";
 
-interface Appointment {
-  id: string;
-  title: string;
-  client: string;
-  type: string;
-  date: string;
-  time: string;
-  duration: number;
-  location: string;
-  status: string;
-  notes: string;
-  lot?: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  priority: string;
-  dueDate: string;
-  status: string;
-  assignedTo: string;
-}
-
 export default function Calendar() {
-  const [appointments] = useState<Appointment[]>([
-    {
-      id: "1",
-      title: "Site Visit",
-      client: "Carlos Miranda",
-      type: "Site Visit",
-      date: "2024-01-16",
-      time: "10:00 AM",
-      duration: 120,
-      location: "Property Site - Block 2",
-      status: "Confirmed",
-      notes: "Show Block 2, Lot 5. Client interested in corner lots.",
-      lot: "Block 2, Lot 5",
-    },
-    {
-      id: "2",
-      title: "Follow-up Call",
-      client: "Maria Santos",
-      type: "Follow-up",
-      date: "2024-01-16",
-      time: "2:00 PM",
-      duration: 30,
-      location: "Office - Phone Call",
-      status: "Pending",
-      notes: "Discuss financing options and payment terms.",
-    },
-    {
-      id: "3",
-      title: "Contract Signing",
-      client: "Sofia Reyes",
-      type: "Documentation",
-      date: "2024-01-16",
-      time: "4:00 PM",
-      duration: 60,
-      location: "Main Office",
-      status: "Confirmed",
-      notes: "Final contract signing for Block 7, Lot 3.",
-      lot: "Block 7, Lot 3",
-    },
-    {
-      id: "4",
-      title: "Site Visit",
-      client: "Anna Rodriguez",
-      type: "Site Visit",
-      date: "2024-01-17",
-      time: "9:00 AM",
-      duration: 90,
-      location: "Property Site - Block 1",
-      status: "Scheduled",
-      notes: "First-time visit. Show available lots in Block 1.",
-    },
-  ]);
+  const queryClient = useQueryClient();
+  const { 
+    appointments,
+    setAppointments,
+    tasks,
+    setTasks,
+    clients, 
+    setClients,
+    setLoading,
+    openDialogOnLoad,
+    setOpenDialogOnLoad,
+  } = useAppStore();
 
-  const [tasks] = useState<Task[]>([
-    {
-      id: "1",
-      title: "Call Maria Santos",
-      description: "Follow up on site visit feedback and financing questions",
-      priority: "High",
-      dueDate: "2024-01-16",
-      status: "Pending",
-      assignedTo: "John Doe",
-    },
-    {
-      id: "2",
-      title: "Prepare Contract Documents",
-      description: "Prepare contract documents for Sofia Reyes - Block 7, Lot 3",
-      priority: "High",
-      dueDate: "2024-01-16",
-      status: "In Progress",
-      assignedTo: "John Doe",
-    },
-    {
-      id: "3",
-      title: "Update Inventory Status",
-      description: "Update lot availability after recent sales",
-      priority: "Medium",
-      dueDate: "2024-01-17",
-      status: "Pending",
-      assignedTo: "John Doe",
-    },
-    {
-      id: "4",
-      title: "Send Weekly Report",
-      description: "Compile and send weekly sales report to management",
-      priority: "Low",
-      dueDate: "2024-01-18",
-      status: "Pending",
-      assignedTo: "John Doe",
-    },
-  ]);
+  const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const [selectedDate, setSelectedDate] = useState("2024-01-16");
+  const { data: appointmentsData = [], isLoading: appointmentsLoading } = useQuery({
+    queryKey: ["appointments"],
+    queryFn: listAppointments,
+  });
+
+  const { data: tasksData = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: listTasks,
+  });
+
+  const { data: clientsData = [] } = useQuery({
+    queryKey: ["clients"],
+    queryFn: listClients,
+  });
+
+  useEffect(() => {
+    if (openDialogOnLoad === 'appointment') {
+      setAppointmentDialogOpen(true);
+      setOpenDialogOnLoad(null);
+    }
+  }, [openDialogOnLoad]);
+
+  useEffect(() => {
+    if (appointmentsData.length > 0) {
+      setAppointments(appointmentsData);
+    }
+  }, [appointmentsData]);
+
+  useEffect(() => {
+    if (tasksData.length > 0) {
+      setTasks(tasksData);
+    }
+  }, [tasksData]);
+
+  useEffect(() => {
+    if (clientsData.length > 0) {
+      setClients(clientsData);
+    }
+  }, [clientsData]);
+
+  useEffect(() => {
+    setLoading('appointments', appointmentsLoading);
+  }, [appointmentsLoading]);
+
+  useEffect(() => {
+    setLoading('tasks', tasksLoading);
+  }, [tasksLoading]);
+
+  const { register: registerAppointment, handleSubmit: handleAppointmentSubmit, reset: resetAppointment, setValue: setAppointmentValue, formState: { errors: appointmentErrors } } = useForm<CreateAppointment>({
+    resolver: zodResolver(CreateAppointmentSchema),
+  });
+
+  const { register: registerTask, handleSubmit: handleTaskSubmit, reset: resetTask, setValue: setTaskValue, formState: { errors: taskErrors } } = useForm<CreateTask>({
+    resolver: zodResolver(CreateTaskSchema),
+  });
+
+  const createAppointmentMutation = useMutation({
+    mutationFn: createAppointment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      resetAppointment();
+      setAppointmentDialogOpen(false);
+    },
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: createTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      resetTask();
+      setTaskDialogOpen(false);
+    },
+  });
+
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: deleteAppointment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: deleteTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const handleCreateAppointmentSubmit = (values: CreateAppointment) => {
+    createAppointmentMutation.mutate(values);
+  };
+
+  const handleCreateTaskSubmit = (values: CreateTask) => {
+    createTaskMutation.mutate(values);
+  };
+
+  const todayAppointments = useMemo(() => {
+    return appointments.filter(apt => apt.scheduled_date === selectedDate);
+  }, [appointments, selectedDate]);
+
+  const todayTasks = useMemo(() => {
+    return tasks.filter(task => task.due_date === selectedDate);
+  }, [tasks, selectedDate]);
+
+  const upcomingAppointments = useMemo(() => {
+    return appointments.filter(apt => apt.scheduled_date > selectedDate);
+  }, [appointments, selectedDate]);
+
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      Confirmed: "success",
-      Scheduled: "default",
-      Pending: "warning",
-      Completed: "success",
-      Cancelled: "destructive",
+      scheduled: "default",
+      confirmed: "success",
+      completed: "success",
+      cancelled: "destructive",
     } as const;
 
     return (
@@ -167,9 +194,9 @@ export default function Calendar() {
 
   const getTaskPriorityBadge = (priority: string) => {
     const variants = {
-      High: "destructive",
-      Medium: "warning",
-      Low: "secondary",
+      high: "destructive",
+      medium: "warning",
+      low: "secondary",
     } as const;
 
     return (
@@ -181,9 +208,9 @@ export default function Calendar() {
 
   const getTaskStatusBadge = (status: string) => {
     const variants = {
-      Pending: "warning",
-      "In Progress": "default",
-      Completed: "success",
+      pending: "warning",
+      in_progress: "default",
+      completed: "success",
     } as const;
 
     return (
@@ -204,293 +231,130 @@ export default function Calendar() {
     return <Icon className="w-4 h-4" />;
   };
 
-  const todayAppointments = appointments.filter(apt => apt.date === selectedDate);
-  const todayTasks = tasks.filter(task => task.dueDate === selectedDate);
-  const upcomingAppointments = appointments.filter(apt => apt.date > selectedDate);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tasks & Calendar</h1>
-          <p className="text-muted-foreground">
-            Manage appointments, site visits, and daily tasks
-          </p>
+          <p className="text-muted-foreground">Manage appointments, site visits, and daily tasks</p>
         </div>
         <div className="flex gap-2">
-          <Dialog>
+          <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Task
-              </Button>
+              <Button variant="outline" className="gap-2"><Plus className="w-4 h-4" />Add Task</Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add New Task</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
+              <DialogHeader><DialogTitle>Add New Task</DialogTitle></DialogHeader>
+              <form onSubmit={handleTaskSubmit(handleCreateTaskSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="taskTitle">Task Title</Label>
-                  <Input id="taskTitle" placeholder="Enter task title" />
+                  <Input id="taskTitle" {...registerTask("title")} />
+                  {taskErrors.title && <p className="text-sm text-red-500">{taskErrors.title.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taskDesc">Description</Label>
-                  <Textarea id="taskDesc" placeholder="Task description..." />
+                  <Textarea id="taskDesc" {...registerTask("description")} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taskPriority">Priority</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
+                  <Select onValueChange={(value) => setTaskValue("priority", value)}>
+                    <SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="high">High</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="low">Low</SelectItem>
                     </SelectContent>
                   </Select>
+                  {taskErrors.priority && <p className="text-sm text-red-500">{taskErrors.priority.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taskDue">Due Date</Label>
-                  <Input id="taskDue" type="date" />
+                  <Input id="taskDue" type="date" {...registerTask("due_date")} />
+                  {taskErrors.due_date && <p className="text-sm text-red-500">{taskErrors.due_date.message}</p>}
                 </div>
-                <Button className="w-full">Add Task</Button>
-              </div>
+                <Button className="w-full" type="submit" disabled={createTaskMutation.isLoading}>
+                  {createTaskMutation.isLoading ? "Adding..." : "Add Task"}
+                </Button>
+              </form>
             </DialogContent>
           </Dialog>
-          <Dialog>
+          <Dialog open={appointmentDialogOpen} onOpenChange={setAppointmentDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Schedule Appointment
-              </Button>
+              <Button className="gap-2"><Plus className="w-4 h-4" />Schedule Appointment</Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Schedule New Appointment</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
+              <DialogHeader><DialogTitle>Schedule New Appointment</DialogTitle></DialogHeader>
+              <form onSubmit={handleAppointmentSubmit(handleCreateAppointmentSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="aptClient">Client</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
+                  <Select onValueChange={(value) => setAppointmentValue("client_id", value)}>
+                    <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="maria">Maria Santos</SelectItem>
-                      <SelectItem value="carlos">Carlos Miranda</SelectItem>
-                      <SelectItem value="anna">Anna Rodriguez</SelectItem>
+                      {clients.map(client => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {appointmentErrors.client_id && <p className="text-sm text-red-500">{appointmentErrors.client_id.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="aptType">Appointment Type</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
+                  <Select onValueChange={(value) => setAppointmentValue("type", value)}>
+                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="site-visit">Site Visit</SelectItem>
-                      <SelectItem value="follow-up">Follow-up</SelectItem>
-                      <SelectItem value="documentation">Documentation</SelectItem>
-                      <SelectItem value="consultation">Consultation</SelectItem>
+                      <SelectItem value="Site Visit">Site Visit</SelectItem>
+                      <SelectItem value="Follow-up">Follow-up</SelectItem>
+                      <SelectItem value="Documentation">Documentation</SelectItem>
+                      <SelectItem value="Consultation">Consultation</SelectItem>
                     </SelectContent>
                   </Select>
+                  {appointmentErrors.type && <p className="text-sm text-red-500">{appointmentErrors.type.message}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="aptDate">Date</Label>
-                    <Input id="aptDate" type="date" />
+                    <Input id="aptDate" type="date" {...registerAppointment("scheduled_date")} />
+                    {appointmentErrors.scheduled_date && <p className="text-sm text-red-500">{appointmentErrors.scheduled_date.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="aptTime">Time</Label>
-                    <Input id="aptTime" type="time" />
+                    <Input id="aptTime" type="time" {...registerAppointment("scheduled_time")} />
+                    {appointmentErrors.scheduled_time && <p className="text-sm text-red-500">{appointmentErrors.scheduled_time.message}</p>}
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="aptLocation">Location</Label>
-                  <Input id="aptLocation" placeholder="Meeting location" />
+                  <Input id="aptLocation" {...registerAppointment("location")} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="aptNotes">Notes</Label>
-                  <Textarea id="aptNotes" placeholder="Additional notes..." />
+                  <Textarea id="aptNotes" {...registerAppointment("notes")} />
                 </div>
-                <Button className="w-full">Schedule Appointment</Button>
-              </div>
+                <Button className="w-full" type="submit" disabled={createAppointmentMutation.isLoading}>
+                  {createAppointmentMutation.isLoading ? "Scheduling..." : "Schedule Appointment"}
+                </Button>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      {/* Date Selector */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <CalendarIcon className="w-5 h-5 text-primary" />
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-auto"
-            />
-            <span className="text-sm text-muted-foreground">
-              Showing schedule for selected date
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      <Card><CardContent className="p-4"><div className="flex items-center gap-4"><CalendarIcon className="w-5 h-5 text-primary" /><Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-auto" /><span className="text-sm text-muted-foreground">Showing schedule for selected date</span></div></CardContent></Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Today's Appointments */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5" />
-              Appointments ({todayAppointments.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {todayAppointments.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
-                  No appointments scheduled for this date
-                </p>
-              ) : (
-                todayAppointments.map((appointment) => (
-                  <div key={appointment.id} className="border border-border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">{appointment.title}</h4>
-                      {getStatusBadge(appointment.status)}
-                    </div>
-                    
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        <span>{appointment.client}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span>{appointment.time} ({appointment.duration}min)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-muted-foreground" />
-                        <span>{appointment.location}</span>
-                      </div>
-                      {appointment.lot && (
-                        <div className="flex items-center gap-2">
-                          <Building className="w-4 h-4 text-muted-foreground" />
-                          <span>{appointment.lot}</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {appointment.notes && (
-                      <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
-                        {appointment.notes}
-                      </p>
-                    )}
-                    
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        Reschedule
-                      </Button>
-                      <Button size="sm" className="flex-1">
-                        Mark Complete
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
+          <CardHeader><CardTitle className="flex items-center gap-2"><CalendarIcon className="w-5 h-5" />Appointments ({todayAppointments.length})</CardTitle></CardHeader>
+          <CardContent><div className="space-y-4">{todayAppointments.length === 0 ? <p className="text-muted-foreground text-center py-4">No appointments scheduled</p> : todayAppointments.map((appointment) => (<div key={appointment.id} className="border border-border rounded-lg p-4 space-y-3"><div className="flex items-center justify-between"><h4 className="font-medium">{appointment.title}</h4>{getStatusBadge(appointment.status)}</div><div className="space-y-2 text-sm"><div className="flex items-center gap-2"><User className="w-4 h-4 text-muted-foreground" /><span>{(appointment.clients as ClientEntity)?.name || "-"}</span></div><div className="flex items-center gap-2"><Clock className="w-4 h-4 text-muted-foreground" /><span>{appointment.scheduled_time} ({appointment.duration}min)</span></div><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-muted-foreground" /><span>{appointment.location}</span></div></div>{appointment.notes && (<p className="text-sm text-muted-foreground bg-muted p-2 rounded">{appointment.notes}</p>)}<div className="flex gap-2"><Button variant="outline" size="sm" className="flex-1"><Edit className="w-4 h-4 mr-2"/>Edit</Button><Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteAppointmentMutation.mutate(appointment.id); }}><Trash2 className="w-4 h-4 mr-2"/>Delete</Button></div></div>))}</div></CardContent>
         </Card>
 
-        {/* Today's Tasks */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5" />
-              Tasks ({todayTasks.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {todayTasks.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
-                  No tasks due for this date
-                </p>
-              ) : (
-                todayTasks.map((task) => (
-                  <div key={task.id} className="border border-border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">{task.title}</h4>
-                      <div className="flex gap-2">
-                        {getTaskPriorityBadge(task.priority)}
-                        {getTaskStatusBadge(task.status)}
-                      </div>
-                    </div>
-                    
-                    <p className="text-sm text-muted-foreground">
-                      {task.description}
-                    </p>
-                    
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      <span>Assigned to: {task.assignedTo}</span>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        Edit
-                      </Button>
-                      <Button size="sm" className="flex-1">
-                        Mark Complete
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
+          <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="w-5 h-5" />Tasks ({todayTasks.length})</CardTitle></CardHeader>
+          <CardContent><div className="space-y-4">{todayTasks.length === 0 ? <p className="text-muted-foreground text-center py-4">No tasks due</p> : todayTasks.map((task) => (<div key={task.id} className="border border-border rounded-lg p-4 space-y-3"><div className="flex items-center justify-between"><h4 className="font-medium">{task.title}</h4><div className="flex gap-2">{getTaskPriorityBadge(task.priority)}{getTaskStatusBadge(task.status)}</div></div><p className="text-sm text-muted-foreground">{task.description}</p><div className="flex items-center gap-2 text-sm"><User className="w-4 h-4 text-muted-foreground" /><span>Assigned to: {(task.profiles as ProfileEntity)?.full_name || "-"}</span></div><div className="flex gap-2"><Button variant="outline" size="sm" className="flex-1"><Edit className="w-4 h-4 mr-2"/>Edit</Button><Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteTaskMutation.mutate(task.id); }}><Trash2 className="w-4 h-4 mr-2"/>Delete</Button></div></div>))}</div></CardContent>
         </Card>
       </div>
 
-      {/* Upcoming Appointments */}
       <Card>
-        <CardHeader>
-          <CardTitle>Upcoming Appointments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {upcomingAppointments.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                No upcoming appointments
-              </p>
-            ) : (
-              upcomingAppointments.slice(0, 5).map((appointment) => (
-                <div key={appointment.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {getTypeIcon(appointment.type)}
-                    <div>
-                      <h4 className="font-medium">{appointment.title}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {appointment.client} • {appointment.date} at {appointment.time}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(appointment.status)}
-                    <Button variant="ghost" size="sm">
-                      View
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
+        <CardHeader><CardTitle>Upcoming Appointments</CardTitle></CardHeader>
+        <CardContent><div className="space-y-3">{upcomingAppointments.length === 0 ? <p className="text-muted-foreground text-center py-4">No upcoming appointments</p> : upcomingAppointments.slice(0, 5).map((appointment) => (<div key={appointment.id} className="flex items-center justify-between p-3 border border-border rounded-lg"><div className="flex items-center gap-3">{getTypeIcon(appointment.type)}<div><h4 className="font-medium">{appointment.title}</h4><p className="text-sm text-muted-foreground">{(appointment.clients as ClientEntity)?.name || "-"} • {appointment.scheduled_date} at {appointment.scheduled_time}</p></div></div><div className="flex items-center gap-2">{getStatusBadge(appointment.status)}<Button variant="ghost" size="sm">View</Button></div></div>))}</div></CardContent>
       </Card>
     </div>
   );

@@ -33,6 +33,7 @@ interface AppState {
     appointment: Appointment | null;
     task: Task | null;
   };
+  openDialogOnLoad: 'lead' | 'payment' | 'appointment' | null;
   
   // Filters
   filters: {
@@ -57,6 +58,7 @@ interface AppState {
   
   // Actions
   setLoading: (entity: keyof AppState['loading'], loading: boolean) => void;
+  setOpenDialogOnLoad: (dialog: AppState['openDialogOnLoad']) => void;
   
   // Lead actions
   setLeads: (leads: Lead[]) => void;
@@ -117,12 +119,12 @@ const initialState = {
     appointments: false,
     tasks: false,
   },
-  leads: loadLeads(),
-  clients: loadClients(),
-  lots: loadLots(),
-  payments: loadPayments(),
-  appointments: loadAppointments(),
-  tasks: loadTasks(),
+  leads: [],
+  clients: [],
+  lots: [],
+  payments: [],
+  appointments: [],
+  tasks: [],
   selectedItems: {
     lead: null,
     client: null,
@@ -131,6 +133,7 @@ const initialState = {
     appointment: null,
     task: null,
   },
+  openDialogOnLoad: null,
   filters: {
     leads: {
       status: 'all',
@@ -162,6 +165,8 @@ export const useAppStore = create<AppState>()(
           set((state) => ({ 
             loading: { ...state.loading, [entity]: loading } 
           }), false, `setLoading/${entity}`),
+          
+        setOpenDialogOnLoad: (dialog) => set({ openDialogOnLoad: dialog }, false, 'setOpenDialogOnLoad'),
         
         // Lead actions
         setLeads: (leads) => 
@@ -357,10 +362,10 @@ export const useAppStore = create<AppState>()(
       }),
       {
         name: 'conglomerate-crm-storage',
-        partialize: (state) => ({
-          filters: state.filters,
-          // Don't persist data arrays - they should come from server
-        }),
+        partialize: (state) =>
+          Object.fromEntries(
+            Object.entries(state).filter(([key]) => !['loading', 'selectedItems'].includes(key))
+          ),
       }
     ),
     {

@@ -33,6 +33,14 @@ export interface Client {
   updated_at: string;
 }
 
+export interface Communication {
+  id: string;
+  client_id: string;
+  type: "email" | "phone" | "meeting";
+  notes?: string;
+  created_at: string;
+}
+
 export interface Lot {
   id: string;
   block_number: string;

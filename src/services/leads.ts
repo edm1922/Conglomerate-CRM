@@ -56,9 +56,10 @@ export async function updateLead(id: string, input: UpdateLeadInput): Promise<Le
   return data as Lead;
 }
 
-export async function deleteLead(id: string): Promise<void> {
+export async function deleteLead(id: string): Promise<{ id: string }> {
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   if (error) throw error;
+  return { id };
 }
 
 export async function convertLeadToClient(leadId: string): Promise<{ clientId: string; updatedLead: Lead }> {
@@ -89,14 +90,14 @@ export async function convertLeadToClient(leadId: string): Promise<{ clientId: s
   };
 }
 
-export function onLeadsChange(callback: (payload: Lead) => void) {
+export function onLeadsChange(callback: (payload: any) => void) {
   return supabase
-    .channel("leads-realtime")
+    .channel('leads-realtime')
     .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: TABLE },
+      'postgres_changes',
+      { event: '*', schema: 'public', table: TABLE },
       (payload) => {
-        callback(payload.new as Lead);
+        callback(payload);
       }
     )
     .subscribe();

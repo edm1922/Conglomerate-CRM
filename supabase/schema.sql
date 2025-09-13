@@ -41,6 +41,15 @@ create table if not exists public.clients (
   updated_at timestamptz default now()
 );
 
+-- Communications
+create table if not exists public.communications (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  type text not null, -- email, phone, meeting
+  notes text,
+  created_at timestamptz default now()
+);
+
 -- Lots / Inventory
 create table if not exists public.lots (
   id uuid primary key default gen_random_uuid(),
@@ -132,6 +141,7 @@ create table if not exists public.reminders (
 alter table public.profiles enable row level security;
 alter table public.leads enable row level security;
 alter table public.clients enable row level security;
+alter table public.communications enable row level security;
 alter table public.lots enable row level security;
 alter table public.payments enable row level security;
 alter table public.appointments enable row level security;
@@ -146,10 +156,15 @@ create policy "update_own_profile" on public.profiles for update using (auth.uid
 create policy "leads_read_all" on public.leads for select using (auth.role() = 'authenticated');
 create policy "leads_write" on public.leads for insert with check (auth.role() = 'authenticated');
 create policy "leads_update" on public.leads for update using (auth.role() = 'authenticated');
+create policy "leads_delete" on public.leads for delete using (auth.role() = 'authenticated');
+
+create policy "communications_read_all" on public.communications for select using (auth.role() = 'authenticated');
+create policy "communications_write" on public.communications for insert with check (auth.role() = 'authenticated');
 
 create policy "reminders_read_all" on public.reminders for select using (auth.role() = 'authenticated');
 create policy "reminders_write" on public.reminders for insert with check (auth.role() = 'authenticated');
 create policy "reminders_update" on public.reminders for update using (auth.role() = 'authenticated');
+create policy "reminders_delete" on public.reminders for delete using (auth.role() = 'authenticated');
 
 -- Storage bucket setup (run via SQL or the dashboard)
 -- insert into storage.buckets (id, name, public) values ('documents', 'documents', false) on conflict do nothing;

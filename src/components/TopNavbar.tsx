@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useAppStore } from "@/stores";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,8 +23,18 @@ import {
 } from "lucide-react";
 
 export function TopNavbar() {
-  const [notifications] = useState(3);
+  const { 
+    leads,
+    payments,
+    setOpenDialogOnLoad 
+  } = useAppStore();
+  const navigate = useNavigate();
   const [displayName, setDisplayName] = useState<string | null>(null);
+
+  const notifications = [
+    ...(leads.slice(0,2).map(l => ({ type: 'lead', message: `New lead: ${l.name}` }))),
+    ...(payments.slice(0,1).map(p => ({ type: 'payment', message: `Payment from ${(p.clients as any)?.name}` })))
+  ];
 
   useEffect(() => {
     getSession().then((session) => {
@@ -37,6 +49,11 @@ export function TopNavbar() {
       sub.unsubscribe?.();
     };
   }, []);
+
+  const handleQuickAction = (dialog: 'lead' | 'payment' | 'appointment', path: string) => {
+    setOpenDialogOnLoad(dialog);
+    navigate(path);
+  };
 
   return (
     <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 shadow-sm">
@@ -53,33 +70,31 @@ export function TopNavbar() {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Quick Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => handleQuickAction('lead', '/leads')}>
             <UserPlus className="w-4 h-4" />
             Add Lead
           </Button>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => handleQuickAction('payment', '/payments')}>
             <span className="text-sm font-bold">₱</span>
             Add Payment
           </Button>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => handleQuickAction('appointment', '/calendar')}>
             <Calendar className="w-4 h-4" />
             Schedule
           </Button>
         </div>
 
-        {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="w-5 h-5" />
-              {notifications > 0 && (
+              {notifications.length > 0 && (
                 <Badge
                   variant="destructive"
                   className="absolute -top-1 -right-1 w-5 h-5 text-xs flex items-center justify-center p-0"
                 >
-                  {notifications}
+                  {notifications.length}
                 </Badge>
               )}
             </Button>
@@ -88,21 +103,15 @@ export function TopNavbar() {
             <div className="p-2">
               <h3 className="font-semibold mb-2">Recent Notifications</h3>
               <div className="space-y-2">
-                <div className="p-2 bg-muted rounded text-sm">
-                  New lead from Facebook: Maria Santos
-                </div>
-                <div className="p-2 bg-muted rounded text-sm">
-                  Payment received: ₱50,000 from Juan Cruz
-                </div>
-                <div className="p-2 bg-muted rounded text-sm">
-                  Site visit scheduled for tomorrow at 2PM
-                </div>
+                {notifications.map((n, i) => (
+                  <div key={i} className="p-2 bg-muted rounded text-sm">{n.message}</div>
+                ))}
+                 {notifications.length === 0 && <p className="text-sm text-muted-foreground text-center">No new notifications</p>}
               </div>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="gap-2">

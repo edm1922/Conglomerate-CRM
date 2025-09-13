@@ -94,14 +94,14 @@ export async function deleteDocument(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export function onClientsChange(callback: (payload: Client) => void) {
+export function onClientsChange(callback: (payload: any) => void) {
   return supabase
-    .channel("clients-realtime")
+    .channel('clients-realtime')
     .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: CLIENTS_TABLE },
+      'postgres_changes',
+      { event: '*', schema: 'public', table: CLIENTS_TABLE },
       (payload) => {
-        callback(payload.new as Client);
+        callback(payload);
       }
     )
     .subscribe();
@@ -118,5 +118,3 @@ export async function createClientLegacy(params: {
   const client = await createClient(params);
   return client.id;
 }
-
-

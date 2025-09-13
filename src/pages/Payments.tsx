@@ -1,10 +1,16 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listPayments, createPayment, updatePayment, deletePayment, onPaymentsChange } from "@/services/payments";
+import { listClients } from "@/services/clients";
+import { useAppStore } from "@/stores";
+import { CreatePaymentSchema, type CreatePayment, type UpdatePayment } from "@/types/validation";
+import { Payment as PaymentEntity, Client as ClientEntity } from "@/types/entities";
 import {
   Table,
   TableBody,
@@ -27,6 +33,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
   Receipt,
@@ -36,67 +44,90 @@ import {
   CreditCard,
   Smartphone,
   Banknote,
+  Trash2,
 } from "lucide-react";
 
-interface Payment {
-  id: string;
-  receiptNo: string;
-  date: string;
-  clientName: string;
-  amount: number;
-  paymentMethod: string;
-  paymentType: string;
-  reference: string;
-  lot: string;
-  status: string;
-  notes: string;
-}
-
 export default function Payments() {
-  const [payments] = useState<Payment[]>([
-    {
-      id: "1",
-      receiptNo: "RCP-001",
-      date: "2024-01-15",
-      clientName: "Sofia Reyes",
-      amount: 600000,
-      paymentMethod: "Bank Transfer",
-      paymentType: "Full Payment",
-      reference: "BT-20240115-001",
-      lot: "Block 7, Lot 3",
-      status: "Confirmed",
-      notes: "Final payment for lot purchase",
-    },
-    {
-      id: "2",
-      receiptNo: "RCP-002",
-      date: "2024-01-14",
-      clientName: "Carlos Miranda",
-      amount: 50000,
-      paymentMethod: "Cash",
-      paymentType: "Additional Payment",
-      reference: "CSH-20240114-001",
-      lot: "Block 2, Lot 5",
-      status: "Confirmed",
-      notes: "Additional payment towards reservation",
-    },
-    {
-      id: "3",
-      receiptNo: "RCP-003",
-      date: "2024-01-13",
-      clientName: "Maria Santos",
-      amount: 25000,
-      paymentMethod: "GCash",
-      paymentType: "Partial Payment",
-      reference: "GC-20240113-001",
-      lot: "Block 1, Lot 1",
-      status: "Pending",
-      notes: "Partial payment pending verification",
-    },
-  ]);
+  const queryClient = useQueryClient();
+  const { 
+    payments, 
+    setPayments,
+    clients, 
+    setClients,
+    setLoading,
+    openDialogOnLoad,
+    setOpenDialogOnLoad,
+  } = useAppStore();
 
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<string>("all");
+
+  const { data: paymentsData = [], isLoading: paymentsLoading } = useQuery({
+    queryKey: ["payments"],
+    queryFn: listPayments,
+  });
+
+  const { data: clientsData = [], isLoading: clientsLoading } = useQuery({
+    queryKey: ["clients"],
+    queryFn: listClients,
+  });
+
+  useEffect(() => {
+    if (openDialogOnLoad === 'payment') {
+      setDialogOpen(true);
+      setOpenDialogOnLoad(null);
+    }
+  }, [openDialogOnLoad]);
+
+  useEffect(() => {
+    if (paymentsData.length > 0) {
+      setPayments(paymentsData);
+    }
+  }, [paymentsData]);
+
+  useEffect(() => {
+    if (clientsData.length > 0) {
+      setClients(clientsData);
+    }
+  }, [clientsData]);
+
+  useEffect(() => {
+    setLoading('payments', paymentsLoading);
+  }, [paymentsLoading]);
+
+  useEffect(() => {
+    const channel = onPaymentsChange(() => {
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+    });
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [queryClient]);
+
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CreatePayment>({
+    resolver: zodResolver(CreatePaymentSchema),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createPayment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+      reset();
+      setDialogOpen(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deletePayment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+    },
+  });
+
+  const handleCreateSubmit = (values: CreatePayment) => {
+    createMutation.mutate(values);
+  };
 
   const paymentMethods = [
     { id: "cash", name: "Cash", icon: Banknote },
@@ -105,15 +136,18 @@ export default function Payments() {
     { id: "cheque", name: "Cheque", icon: Receipt },
   ];
 
-  const filteredPayments = payments.filter((payment) => {
-    const matchesSearch = 
-      payment.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.receiptNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.lot.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesMethod = selectedMethod === "all" || 
-      payment.paymentMethod.toLowerCase().replace(" ", "-") === selectedMethod;
-    return matchesSearch && matchesMethod;
-  });
+  const filteredPayments = useMemo(() => {
+    return payments.filter((payment) => {
+      const clientName = (payment.clients as ClientEntity)?.name || "";
+      const matchesSearch =
+        clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        payment.receipt_no.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesMethod =
+        selectedMethod === "all" ||
+        payment.payment_method.toLowerCase().replace(" ", "-") === selectedMethod;
+      return matchesSearch && matchesMethod;
+    });
+  }, [payments, searchTerm, selectedMethod]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -125,9 +159,9 @@ export default function Payments() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      Confirmed: "success",
-      Pending: "warning",
-      Failed: "destructive",
+      confirmed: "success",
+      pending: "warning",
+      failed: "destructive",
     } as const;
 
     return (
@@ -139,10 +173,10 @@ export default function Payments() {
 
   const getMethodIcon = (method: string) => {
     const icons = {
-      "Cash": Banknote,
+      Cash: Banknote,
       "Bank Transfer": CreditCard,
-      "GCash": Smartphone,
-      "Cheque": Receipt,
+      GCash: Smartphone,
+      Cheque: Receipt,
     } as const;
 
     const Icon = icons[method as keyof typeof icons] || Banknote;
@@ -151,28 +185,25 @@ export default function Payments() {
 
   const todayStats = {
     totalCollected: payments
-      .filter(p => p.date === "2024-01-15" && p.status === "Confirmed")
+      .filter(p => new Date(p.created_at).toDateString() === new Date().toDateString() && p.status === "confirmed")
       .reduce((sum, p) => sum + p.amount, 0),
-    totalTransactions: payments.filter(p => p.date === "2024-01-15").length,
+    totalTransactions: payments.filter(p => new Date(p.created_at).toDateString() === new Date().toDateString()).length,
     cashPayments: payments
-      .filter(p => p.date === "2024-01-15" && p.paymentMethod === "Cash")
+      .filter(p => new Date(p.created_at).toDateString() === new Date().toDateString() && p.payment_method === "Cash")
       .reduce((sum, p) => sum + p.amount, 0),
     digitalPayments: payments
-      .filter(p => p.date === "2024-01-15" && ["Bank Transfer", "GCash"].includes(p.paymentMethod))
+      .filter(p => new Date(p.created_at).toDateString() === new Date().toDateString() && ["Bank Transfer", "GCash"].includes(p.payment_method))
       .reduce((sum, p) => sum + p.amount, 0),
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Cashiering & Payments</h1>
-          <p className="text-muted-foreground">
-            Record payments and manage transactions
-          </p>
+          <p className="text-muted-foreground">Record payments and manage transactions</p>
         </div>
-        <Dialog>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="w-4 h-4" />
@@ -183,115 +214,78 @@ export default function Payments() {
             <DialogHeader>
               <DialogTitle>Record New Payment</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <form onSubmit={handleSubmit(handleCreateSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="client">Client Name</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
+                <Label htmlFor="client_id">Client Name</Label>
+                <Select onValueChange={(value) => setValue("client_id", value)}>
+                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sofia">Sofia Reyes</SelectItem>
-                    <SelectItem value="carlos">Carlos Miranda</SelectItem>
-                    <SelectItem value="maria">Maria Santos</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                 {errors.client_id && <p className="text-sm text-red-500">{errors.client_id.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount (PHP)</Label>
-                <Input id="amount" type="number" placeholder="Enter amount" />
+                <Input id="amount" type="number" {...register("amount", { valueAsNumber: true })} />
+                {errors.amount && <p className="text-sm text-red-500">{errors.amount.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="method">Payment Method</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment method" />
-                  </SelectTrigger>
+                <Label htmlFor="payment_method">Payment Method</Label>
+                <Select onValueChange={(value) => setValue("payment_method", value)}>
+                  <SelectTrigger><SelectValue placeholder="Select payment method" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="bank-transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="gcash">GCash</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="GCash">GCash</SelectItem>
+                    <SelectItem value="Cheque">Cheque</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.payment_method && <p className="text-sm text-red-500">{errors.payment_method.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="type">Payment Type</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
+                <Label htmlFor="payment_type">Payment Type</Label>
+                <Select onValueChange={(value) => setValue("payment_type", value)}>
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="reservation">Reservation</SelectItem>
-                    <SelectItem value="partial">Partial Payment</SelectItem>
-                    <SelectItem value="full">Full Payment</SelectItem>
-                    <SelectItem value="additional">Additional Payment</SelectItem>
+                    <SelectItem value="Reservation">Reservation</SelectItem>
+                    <SelectItem value="Partial Payment">Partial Payment</SelectItem>
+                    <SelectItem value="Full Payment">Full Payment</SelectItem>
+                    <SelectItem value="Additional Payment">Additional Payment</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.payment_type && <p className="text-sm text-red-500">{errors.payment_type.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="receipt_no">Receipt Number</Label>
+                <Input id="receipt_no" {...register("receipt_no")} />
+                {errors.receipt_no && <p className="text-sm text-red-500">{errors.receipt_no.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reference">Reference Number</Label>
-                <Input id="reference" placeholder="Enter reference number" />
+                <Input id="reference" {...register("reference")} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" placeholder="Additional notes..." />
+                <Textarea id="notes" {...register("notes")} />
               </div>
-              <Button className="w-full">Record Payment</Button>
-            </div>
+              <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
+                {createMutation.isLoading ? "Recording..." : "Record Payment"}
+              </Button>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Today's Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Today's Collection</p>
-                <p className="text-2xl font-bold">{formatCurrency(todayStats.totalCollected)}</p>
-              </div>
-              <span className="text-2xl font-bold text-success">₱</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Transactions</p>
-                <p className="text-2xl font-bold">{todayStats.totalTransactions}</p>
-              </div>
-              <Receipt className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Cash Payments</p>
-                <p className="text-2xl font-bold">{formatCurrency(todayStats.cashPayments)}</p>
-              </div>
-              <Banknote className="w-8 h-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Digital Payments</p>
-                <p className="text-2xl font-bold">{formatCurrency(todayStats.digitalPayments)}</p>
-              </div>
-              <CreditCard className="w-8 h-8 text-accent" />
-            </div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Today's Collection</p><p className="text-2xl font-bold">{formatCurrency(todayStats.totalCollected)}</p></div><span className="text-2xl font-bold text-success">₱</span></CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Transactions</p><p className="text-2xl font-bold">{todayStats.totalTransactions}</p></div><Receipt className="w-8 h-8 text-primary" /></CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Cash Payments</p><p className="text-2xl font-bold">{formatCurrency(todayStats.cashPayments)}</p></div><Banknote className="w-8 h-8 text-warning" /></CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Digital Payments</p><p className="text-2xl font-bold">{formatCurrency(todayStats.digitalPayments)}</p></div><CreditCard className="w-8 h-8 text-accent" /></CardContent></Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
@@ -325,7 +319,6 @@ export default function Payments() {
         </CardContent>
       </Card>
 
-      {/* Payments Table */}
       <Card>
         <CardHeader>
           <CardTitle>Payment Records ({filteredPayments.length})</CardTitle>
@@ -340,7 +333,6 @@ export default function Payments() {
                 <TableHead>Amount</TableHead>
                 <TableHead>Method</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Lot</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -348,58 +340,24 @@ export default function Payments() {
             <TableBody>
               {filteredPayments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell className="font-medium">{payment.receiptNo}</TableCell>
-                  <TableCell>{payment.date}</TableCell>
-                  <TableCell>{payment.clientName}</TableCell>
-                  <TableCell className="font-semibold">
-                    {formatCurrency(payment.amount)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getMethodIcon(payment.paymentMethod)}
-                      <span>{payment.paymentMethod}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{payment.paymentType}</TableCell>
-                  <TableCell>{payment.lot}</TableCell>
+                  <TableCell className="font-medium">{payment.receipt_no}</TableCell>
+                  <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>{(payment.clients as ClientEntity)?.name || "-"}</TableCell>
+                  <TableCell className="font-semibold">{formatCurrency(payment.amount)}</TableCell>
+                  <TableCell><div className="flex items-center gap-2">{getMethodIcon(payment.payment_method)}<span>{payment.payment_method}</span></div></TableCell>
+                  <TableCell>{payment.payment_type}</TableCell>
                   <TableCell>{getStatusBadge(payment.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm">
-                        <Download className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Receipt className="w-4 h-4" />
-                      </Button>
+                      <Button variant="ghost" size="sm"><Download className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm"><Receipt className="w-4 h-4" /></Button>
+                      <Button variant="destructive" size="sm" onClick={() => { if (confirm("Are you sure?")) deleteMutation.mutate(payment.id); }}><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-
-      {/* Reconciliation Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>End-of-Day Reconciliation</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground">Cash on Hand</p>
-              <p className="text-2xl font-bold">{formatCurrency(todayStats.cashPayments)}</p>
-            </div>
-            <div className="text-center p-4 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground">Digital Receipts</p>
-              <p className="text-2xl font-bold">{formatCurrency(todayStats.digitalPayments)}</p>
-            </div>
-            <div className="text-center p-4 bg-primary/10 rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Collection</p>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(todayStats.totalCollected)}</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

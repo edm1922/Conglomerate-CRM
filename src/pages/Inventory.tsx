@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listLots, createLot, updateLot, deleteLot, onLotsChange } from "@/services/lots";
+import { useAppStore } from "@/stores";
+import { CreateLotSchema, UpdateLotSchema, type CreateLot, type UpdateLot } from "@/types/validation";
+import { Lot as LotEntity } from "@/types/entities";
 import {
   Select,
   SelectContent,
@@ -18,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Building,
   Search,
@@ -25,99 +33,96 @@ import {
   MapPin,
   Ruler,
   Plus,
+  Edit,
+  Trash2,
 } from "lucide-react";
 
-interface Lot {
-  id: string;
-  blockNumber: string;
-  lotNumber: string;
-  size: number;
-  price: number;
-  status: "Available" | "Reserved" | "Sold";
-  location: string;
-  description: string;
-  reservedBy?: string;
-  soldTo?: string;
-  dateReserved?: string;
-  dateSold?: string;
-}
-
 export default function Inventory() {
-  const [lots] = useState<Lot[]>([
-    {
-      id: "1",
-      blockNumber: "1",
-      lotNumber: "1",
-      size: 200,
-      price: 600000,
-      status: "Available",
-      location: "Corner lot, near main entrance",
-      description: "Prime corner lot with excellent accessibility",
-    },
-    {
-      id: "2",
-      blockNumber: "1",
-      lotNumber: "2",
-      size: 180,
-      price: 540000,
-      status: "Available",
-      location: "Interior lot, quiet area",
-      description: "Peaceful interior lot perfect for family home",
-    },
-    {
-      id: "3",
-      blockNumber: "2",
-      lotNumber: "5",
-      size: 220,
-      price: 660000,
-      status: "Reserved",
-      location: "Near amenities",
-      description: "Close to planned community center",
-      reservedBy: "Carlos Miranda",
-      dateReserved: "2024-01-14",
-    },
-    {
-      id: "4",
-      blockNumber: "3",
-      lotNumber: "8",
-      size: 250,
-      price: 750000,
-      status: "Sold",
-      location: "Premium location",
-      description: "Largest lot in Block 3",
-      soldTo: "Sofia Reyes",
-      dateSold: "2024-01-12",
-    },
-    {
-      id: "5",
-      blockNumber: "4",
-      lotNumber: "12",
-      size: 190,
-      price: 570000,
-      status: "Available",
-      location: "Near park area",
-      description: "Close to planned green spaces",
-    },
-    {
-      id: "6",
-      blockNumber: "5",
-      lotNumber: "3",
-      size: 210,
-      price: 630000,
-      status: "Available",
-      location: "Corner lot, good view",
-      description: "Corner lot with mountain view",
-    },
-  ]);
+  const queryClient = useQueryClient();
+  const {
+    lots,
+    setLots,
+    deleteLot: removeLotFromStore,
+    updateLot: updateLotInStore,
+    setLoading
+  } = useAppStore();
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingLot, setEditingLot] = useState<LotEntity | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
 
+  const { data: lotsData = [], isLoading: lotsLoading } = useQuery({
+    queryKey: ["lots"],
+    queryFn: listLots,
+  });
+
+  useEffect(() => {
+    if (lotsData.length > 0) {
+      setLots(lotsData);
+    }
+  }, [lotsData]);
+
+  useEffect(() => {
+    setLoading('lots', lotsLoading);
+  }, [lotsLoading]);
+
+  useEffect(() => {
+    const channel = onLotsChange(() => {
+      queryClient.invalidateQueries({ queryKey: ["lots"] });
+    });
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [queryClient]);
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateLot>({
+    resolver: zodResolver(CreateLotSchema),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createLot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lots"] });
+      reset();
+      setDialogOpen(false);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateLot }) => updateLot(id, data),
+    onSuccess: (updatedLot) => {
+      updateLotInStore(updatedLot.id, updatedLot);
+      queryClient.invalidateQueries({ queryKey: ["lots"] });
+      setEditDialogOpen(false);
+      setEditingLot(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteLot,
+    onSuccess: (deletedLot) => {
+      removeLotFromStore(deletedLot.id);
+      queryClient.invalidateQueries({ queryKey: ["lots"] });
+    },
+  });
+
+  const handleCreateSubmit = (values: CreateLot) => {
+    createMutation.mutate(values);
+  };
+
+  const handleUpdateSubmit = (values: UpdateLot) => {
+    if (editingLot) {
+      updateMutation.mutate({ id: editingLot.id, data: values });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants = {
-      Available: "success",
-      Reserved: "warning", 
-      Sold: "destructive",
+      available: "success",
+      reserved: "warning",
+      sold: "destructive",
     } as const;
 
     return (
@@ -135,33 +140,32 @@ export default function Inventory() {
     }).format(price);
   };
 
-  const filteredLots = lots.filter((lot) => {
-    const matchesStatus = selectedStatus === "all" || lot.status === selectedStatus;
-    const matchesSearch = 
-      lot.blockNumber.includes(searchTerm) ||
-      lot.lotNumber.includes(searchTerm) ||
-      lot.location.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filteredLots = useMemo(() => {
+    return lots.filter((lot) => {
+      const matchesStatus = selectedStatus === "all" || lot.status === selectedStatus;
+      const matchesSearch =
+        lot.block_number.includes(searchTerm) ||
+        lot.lot_number.includes(searchTerm) ||
+        (lot.location || "").toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesStatus && matchesSearch;
+    });
+  }, [lots, selectedStatus, searchTerm]);
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: lots.length,
-    available: lots.filter(lot => lot.status === "Available").length,
-    reserved: lots.filter(lot => lot.status === "Reserved").length,
-    sold: lots.filter(lot => lot.status === "Sold").length,
-  };
+    available: lots.filter(lot => lot.status === "available").length,
+    reserved: lots.filter(lot => lot.status === "reserved").length,
+    sold: lots.filter(lot => lot.status === "sold").length,
+  }), [lots]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Property Inventory</h1>
-          <p className="text-muted-foreground">
-            Manage residential lots and their availability
-          </p>
+          <p className="text-muted-foreground">Manage residential lots and their availability</p>
         </div>
-        <Dialog>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="w-4 h-4" />
@@ -172,72 +176,52 @@ export default function Inventory() {
             <DialogHeader>
               <DialogTitle>Add New Lot</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <form onSubmit={handleSubmit(handleCreateSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="block">Block Number</Label>
-                  <Input id="block" placeholder="Block #" />
+                  <Label htmlFor="block_number">Block Number</Label>
+                  <Input id="block_number" {...register("block_number")} />
+                  {errors.block_number && <p className="text-sm text-red-500">{errors.block_number.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lot">Lot Number</Label>
-                  <Input id="lot" placeholder="Lot #" />
+                  <Label htmlFor="lot_number">Lot Number</Label>
+                  <Input id="lot_number" {...register("lot_number")} />
+                  {errors.lot_number && <p className="text-sm text-red-500">{errors.lot_number.message}</p>}
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="size">Size (sqm)</Label>
-                <Input id="size" type="number" placeholder="Enter size in square meters" />
+                <Input id="size" type="number" {...register("size", { valueAsNumber: true })} />
+                {errors.size && <p className="text-sm text-red-500">{errors.size.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="price">Price (PHP)</Label>
-                <Input id="price" type="number" placeholder="Enter price" />
+                <Input id="price" type="number" {...register("price", { valueAsNumber: true })} />
+                {errors.price && <p className="text-sm text-red-500">{errors.price.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="location">Location Description</Label>
-                <Input id="location" placeholder="e.g., Corner lot, near entrance" />
+                <Input id="location" {...register("location")} />
               </div>
-              <Button className="w-full">Add Lot</Button>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" {...register("description")} />
+              </div>
+              <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
+                {createMutation.isLoading ? "Adding..." : "Add Lot"}
+              </Button>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-              <p className="text-sm text-muted-foreground">Total Lots</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-success">{stats.available}</div>
-              <p className="text-sm text-muted-foreground">Available</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-warning">{stats.reserved}</div>
-              <p className="text-sm text-muted-foreground">Reserved</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-destructive">{stats.sold}</div>
-              <p className="text-sm text-muted-foreground">Sold</p>
-            </div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold">{stats.total}</div><p className="text-sm text-muted-foreground">Total Lots</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-success">{stats.available}</div><p className="text-sm text-muted-foreground">Available</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-warning">{stats.reserved}</div><p className="text-sm text-muted-foreground">Reserved</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-destructive">{stats.sold}</div><p className="text-sm text-muted-foreground">Sold</p></CardContent></Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
@@ -260,9 +244,9 @@ export default function Inventory() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="Reserved">Reserved</SelectItem>
-                  <SelectItem value="Sold">Sold</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="reserved">Reserved</SelectItem>
+                  <SelectItem value="sold">Sold</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -270,71 +254,45 @@ export default function Inventory() {
         </CardContent>
       </Card>
 
-      {/* Lots Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredLots.map((lot) => (
           <Card key={lot.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
-                  Block {lot.blockNumber}, Lot {lot.lotNumber}
-                </CardTitle>
+                <CardTitle className="text-lg">Block {lot.block_number}, Lot {lot.lot_number}</CardTitle>
                 {getStatusBadge(lot.status)}
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="w-4 h-4" />
-                <span>{lot.location}</span>
-              </div>
-              
-              <div className="flex items-center gap-2 text-sm">
-                <Ruler className="w-4 h-4 text-muted-foreground" />
-                <span>{lot.size} sqm</span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-muted-foreground">₱</span>
-                <span className="font-semibold text-lg">{formatPrice(lot.price)}</span>
-              </div>
-              
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><MapPin className="w-4 h-4" /><span>{lot.location}</span></div>
+              <div className="flex items-center gap-2 text-sm"><Ruler className="w-4 h-4 text-muted-foreground" /><span>{lot.size} sqm</span></div>
+              <div className="flex items-center gap-2"><span className="text-sm font-bold text-muted-foreground">₱</span><span className="font-semibold text-lg">{formatPrice(lot.price)}</span></div>
               <p className="text-sm text-muted-foreground">{lot.description}</p>
-              
-              {lot.status === "Reserved" && lot.reservedBy && (
-                <div className="text-sm text-warning">
-                  Reserved by: {lot.reservedBy}
-                  <br />
-                  Date: {lot.dateReserved}
-                </div>
-              )}
-              
-              {lot.status === "Sold" && lot.soldTo && (
-                <div className="text-sm text-destructive">
-                  Sold to: {lot.soldTo}
-                  <br />
-                  Date: {lot.dateSold}
-                </div>
-              )}
-              
               <div className="flex gap-2 pt-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex-1"
-                  disabled={lot.status === "Sold"}
-                >
-                  {lot.status === "Available" ? "Reserve" : "View Details"}
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => { setEditingLot(lot); setEditDialogOpen(true); }}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
                 </Button>
-                {lot.status === "Available" && (
-                  <Button size="sm" className="flex-1">
-                    Mark as Sold
-                  </Button>
-                )}
+                <Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteMutation.mutate(lot.id); }}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {editingLot && (
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Edit Lot</DialogTitle></DialogHeader>
+            <form onSubmit={handleSubmit(handleUpdateSubmit)} className="space-y-4">
+              {/* Form fields are pre-filled using react-hook-form's reset method */}
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -67,6 +67,21 @@ export const CreateClientSchema = ClientSchema.omit({
 
 export const UpdateClientSchema = CreateClientSchema.partial();
 
+// Communication schemas
+export const CommunicationSchema = z.object({
+  id: z.string().uuid(),
+  client_id: z.string().uuid(),
+  type: z.enum(["email", "phone", "meeting"]),
+  notes: z.string().optional(),
+  created_at: z.string(),
+});
+
+export const CreateCommunicationSchema = CommunicationSchema.omit({
+  id: true,
+  created_at: true,
+});
+
+
 // Lot schemas
 export const LotSchema = z.object({
   id: z.string().uuid(),
@@ -251,3 +266,6 @@ export type UpdateDocument = z.infer<typeof UpdateDocumentSchema>;
 export type Reminder = z.infer<typeof ReminderSchema>;
 export type CreateReminder = z.infer<typeof CreateReminderSchema>;
 export type UpdateReminder = z.infer<typeof UpdateReminderSchema>;
+
+export type Communication = z.infer<typeof CommunicationSchema>;
+export type CreateCommunication = z.infer<typeof CreateCommunicationSchema>;

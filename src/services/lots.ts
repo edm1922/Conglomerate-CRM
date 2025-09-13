@@ -91,14 +91,14 @@ export async function getAvailableLots(): Promise<Lot[]> {
   return data as Lot[];
 }
 
-export function onLotsChange(callback: (payload: Lot) => void) {
+export function onLotsChange(callback: (payload: any) => void) {
   return supabase
     .channel("lots-realtime")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: TABLE },
       (payload) => {
-        callback(payload.new as Lot);
+        callback(payload);
       }
     )
     .subscribe();

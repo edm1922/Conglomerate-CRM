@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,14 +54,16 @@ import {
   Trash2,
   Edit,
   Bell,
+  Zap,
 } from "lucide-react";
 import { calculateLeadScore } from "@/lib/utils";
 import type { Lead as LeadEntity, Reminder as ReminderEntity } from "@/types/entities";
+import { runAutomatedFollowUp } from "@/services/workflows";
 
 type Lead = LeadEntity;
 
 function EditLeadDialog({ lead, open, onOpenChange, onUpdate }: { lead: Lead; open: boolean; onOpenChange: (open: boolean) => void; onUpdate: (data: UpdateLead) => void; }) {
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<UpdateLead>({
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<UpdateLead>({
     resolver: zodResolver(UpdateLeadSchema),
     defaultValues: {
       name: lead.name,
@@ -113,7 +116,7 @@ function EditLeadDialog({ lead, open, onOpenChange, onUpdate }: { lead: Lead; op
           </div>
           <div className="space-y-2">
             <Label htmlFor="source-edit">Source</Label>
-            <Select defaultValue={lead.source} onValueChange={(v) => register("source").onChange({ target: { value: v } })}>
+            <Select defaultValue={lead.source} onValueChange={(v) => setValue("source", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Facebook">Facebook</SelectItem>
@@ -180,15 +183,29 @@ function ReminderDialog({ lead, open, onOpenChange, onCreate }: { lead: Lead; op
   );
 }
 
+function CommunicationHistory({ lead }: { lead: Lead }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Communication History</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground">No communication history yet.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Leads() {
   const queryClient = useQueryClient();
   const {
     leads,
     filters,
+    openDialogOnLoad,
     setLeads,
-    updateLead: updateLeadInStore,
     setLeadFilter,
-    setLoading
+    setLoading,
+    setOpenDialogOnLoad,
   } = useAppStore();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -196,6 +213,7 @@ export default function Leads() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [remindingLead, setRemindingLead] = useState<Lead | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   const { data: leadsData = [], isLoading: leadsLoading } = useQuery({
     queryKey: ["leads"],
@@ -208,14 +226,19 @@ export default function Leads() {
   });
 
   useEffect(() => {
-    if (leadsData.length > 0) {
-      setLeads(leadsData);
+    if (openDialogOnLoad === 'lead') {
+      setDialogOpen(true);
+      setOpenDialogOnLoad(null);
     }
-  }, [leadsData, setLeads]);
+  }, [openDialogOnLoad]);
+
+  useEffect(() => {
+    setLeads(leadsData);
+  }, [leadsData]);
 
   useEffect(() => {
     setLoading('leads', leadsLoading);
-  }, [leadsLoading, setLoading]);
+  }, [leadsLoading]);
 
   useEffect(() => {
     const channel = onLeadsChange(() => {
@@ -252,9 +275,7 @@ export default function Leads() {
         const score = calculateLeadScore(data);
         return updateLead(id, { ...data, score });
     },
-    onSuccess: (updatedLead) => {
-      updateLeadInStore(updatedLead.id, updatedLead);
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    onSuccess: () => {
       setEditDialogOpen(false);
       setEditingLead(null);
     },
@@ -263,7 +284,7 @@ export default function Leads() {
   const deleteMutation = useMutation({
     mutationFn: deleteLead,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
     },
   });
 
@@ -286,6 +307,17 @@ export default function Leads() {
       setReminderDialogOpen(false);
     },
   });
+  
+  const automatedFollowUpMutation = useMutation({
+    mutationFn: runAutomatedFollowUp,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      alert("Automated follow-up completed successfully!");
+    },
+    onError: (error) => {
+      alert(`Automated follow-up failed: ${error.message}`);
+    },
+  });
 
   const handleCreateSubmit = (values: CreateLead) => {
     createMutation.mutate(values);
@@ -299,6 +331,14 @@ export default function Leads() {
 
   const handleCreateReminderSubmit = (values: CreateReminder) => {
     createReminderMutation.mutate(values);
+  };
+
+  const sendEmail = (lead: Lead) => {
+    alert(`Sending email to ${lead.name} at ${lead.email}`);
+  };
+
+  const sendSMS = (lead: Lead) => {
+    alert(`Sending SMS to ${lead.name} at ${lead.phone}`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -340,62 +380,68 @@ export default function Leads() {
               Manage and track potential clients
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <UserPlus className="w-4 h-4" />
-                Add New Lead
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add New Lead</DialogTitle>
-              </DialogHeader>
-              <form
-                className="space-y-4"
-                onSubmit={handleSubmit(handleCreateSubmit)}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" {...register("name")} />
-                  {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" {...register("email")} />
-                   {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" {...register("phone")} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="source">Source</Label>
-                  <Select onValueChange={(v) => setValue("source", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Facebook">Facebook</SelectItem>
-                      <SelectItem value="Google">Google</SelectItem>
-                      <SelectItem value="Walk-in">Walk-in</SelectItem>
-                      <SelectItem value="Referral">Referral</SelectItem>
-                    </SelectContent>
-                  </Select>
-                   {errors.source && <p className="text-sm text-red-500">{errors.source.message}</p>}
-                </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="score">Lead Score</Label>
-                  <Input id="score" type="number" {...register("score", { valueAsNumber: true })} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea id="notes" {...register("notes")} />
-                </div>
-                <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
-                  {createMutation.isLoading ? "Adding..." : "Add Lead"}
+          <div className="flex gap-2">
+            <Button className="gap-2" variant="outline" onClick={() => automatedFollowUpMutation.mutate()} disabled={automatedFollowUpMutation.isLoading}>
+                <Zap className="w-4 h-4" />
+                Run Automated Follow-up
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <UserPlus className="w-4 h-4" />
+                  Add New Lead
                 </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add New Lead</DialogTitle>
+                </DialogHeader>
+                <form
+                  className="space-y-4"
+                  onSubmit={handleSubmit(handleCreateSubmit)}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input id="name" {...register("name")} />
+                    {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" {...register("email")} />
+                     {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input id="phone" {...register("phone")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="source">Source</Label>
+                    <Select onValueChange={(v) => setValue("source", v)}>
+                      <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Facebook">Facebook</SelectItem>
+                        <SelectItem value="Google">Google</SelectItem>
+                        <SelectItem value="Walk-in">Walk-in</SelectItem>
+                        <SelectItem value="Referral">Referral</SelectItem>
+                      </SelectContent>
+                    </Select>
+                     {errors.source && <p className="text-sm text-red-500">{errors.source.message}</p>}
+                  </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="score">Lead Score</Label>
+                    <Input id="score" type="number" {...register("score", { valueAsNumber: true })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea id="notes" {...register("notes")} />
+                  </div>
+                  <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
+                    {createMutation.isLoading ? "Adding..." : "Add Lead"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <Card>
@@ -431,7 +477,7 @@ export default function Leads() {
                     <SelectItem value="Walk-in">Walk-in</SelectItem>
                     <SelectItem value="Referral">Referral</SelectItem>
                   </SelectContent>
-                </Select>
+_                </Select>
               </div>
             </div>
           </CardContent>
@@ -456,15 +502,15 @@ export default function Leads() {
               </TableHeader>
               <TableBody>
                 {(!leadsLoading ? filteredLeads : []).map((lead) => (
-                  <TableRow key={lead.id}>
+                  <TableRow key={lead.id} onClick={() => setSelectedLead(lead)}>
                     <TableCell>
                       <div className="font-medium">{lead.name}</div>
                       <div className="text-sm text-muted-foreground truncate max-w-xs">{lead.notes}</div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm"><Mail className="w-3 h-3" />{lead.email}</div>
-                        <div className="flex items-center gap-2 text-sm"><Phone className="w-3 h-3" />{lead.phone}</div>
+                        <div className="flex items-center gap-2 text-sm"><Button variant="ghost" size="sm" onClick={() => sendEmail(lead)}><Mail className="w-3 h-3" /></Button>{lead.email}</div>
+                        <div className="flex items-center gap-2 text-sm"><Button variant="ghost" size="sm" onClick={() => sendSMS(lead)}><Phone className="w-3 h-3" /></Button>{lead.phone}</div>
                       </div>
                     </TableCell>
                     <TableCell><Badge>{lead.source}</Badge></TableCell>
@@ -511,7 +557,7 @@ export default function Leads() {
                               <span>Set Reminder</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => {
-                              if (confirm(`Are you sure you want to delete lead "${lead.name}"?`)) {
+                              if (confirm(`Are you sure you want to delete lead \"${lead.name}\"?`)) {
                                 deleteMutation.mutate(lead.id);
                               }
                             }}
@@ -555,6 +601,7 @@ export default function Leads() {
                   )}
               </CardContent>
           </Card>
+          {selectedLead && <CommunicationHistory lead={selectedLead} />}
       </div>
       
       {editingLead && (
