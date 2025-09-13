@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listLots, createLot, updateLot, deleteLot, onLotsChange } from "@/services/lots";
-import { useAppStore } from "@/stores";
 import { CreateLotSchema, UpdateLotSchema, type CreateLot, type UpdateLot } from "@/types/validation";
 import { Lot as LotEntity } from "@/types/entities";
 import {
@@ -36,16 +35,85 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+function EditLotDialog({ lot, open, onOpenChange, onUpdate }: { lot: LotEntity; open: boolean; onOpenChange: (open: boolean) => void; onUpdate: (data: UpdateLot) => void; }) {
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<UpdateLot>({
+    resolver: zodResolver(UpdateLotSchema),
+  });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        block_number: lot.block_number,
+        lot_number: lot.lot_number,
+        size: lot.size,
+        price: lot.price,
+        location: lot.location,
+        description: lot.description,
+        status: lot.status,
+      });
+    }
+  }, [open, lot, reset]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Edit Lot</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onUpdate)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="block_number-edit">Block Number</Label>
+                  <Input id="block_number-edit" {...register("block_number")} />
+                  {errors.block_number && <p className="text-sm text-red-500">{errors.block_number.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lot_number-edit">Lot Number</Label>
+                  <Input id="lot_number-edit" {...register("lot_number")} />
+                  {errors.lot_number && <p className="text-sm text-red-500">{errors.lot_number.message}</p>}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="size-edit">Size (sqm)</Label>
+                <Input id="size-edit" type="number" {...register("size", { valueAsNumber: true })} />
+                {errors.size && <p className="text-sm text-red-500">{errors.size.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price-edit">Price (PHP)</Label>
+                <Input id="price-edit" type="number" {...register("price", { valueAsNumber: true })} />
+                {errors.price && <p className="text-sm text-red-500">{errors.price.message}</p>}
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="status-edit">Status</Label>
+                <Select defaultValue={lot.status} onValueChange={(v) => setValue("status", v as "available" | "reserved" | "sold")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="available">Available</SelectItem>
+                    <SelectItem value="reserved">Reserved</SelectItem>
+                    <SelectItem value="sold">Sold</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.status && <p className="text-sm text-red-500">{errors.status.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="location-edit">Location Description</Label>
+                <Input id="location-edit" {...register("location")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description-edit">Description</Label>
+                <Textarea id="description-edit" {...register("description")} />
+              </div>
+              <Button className="w-full" type="submit">Save Changes</Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 export default function Inventory() {
   const queryClient = useQueryClient();
-  const {
-    lots,
-    setLots,
-    deleteLot: removeLotFromStore,
-    updateLot: updateLotInStore,
-    setLoading
-  } = useAppStore();
+  const { toast } = useToast();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -53,20 +121,10 @@ export default function Inventory() {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: lotsData = [], isLoading: lotsLoading } = useQuery({
+  const { data: lotsData = [], isLoading: lotsLoading, isError, error } = useQuery({
     queryKey: ["lots"],
     queryFn: listLots,
   });
-
-  useEffect(() => {
-    if (lotsData.length > 0) {
-      setLots(lotsData);
-    }
-  }, [lotsData]);
-
-  useEffect(() => {
-    setLoading('lots', lotsLoading);
-  }, [lotsLoading]);
 
   useEffect(() => {
     const channel = onLotsChange(() => {
@@ -87,25 +145,35 @@ export default function Inventory() {
       queryClient.invalidateQueries({ queryKey: ["lots"] });
       reset();
       setDialogOpen(false);
+      toast({ title: "Success", description: "Lot created successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateLot }) => updateLot(id, data),
-    onSuccess: (updatedLot) => {
-      updateLotInStore(updatedLot.id, updatedLot);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lots"] });
       setEditDialogOpen(false);
       setEditingLot(null);
+      toast({ title: "Success", description: "Lot updated successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteLot,
-    onSuccess: (deletedLot) => {
-      removeLotFromStore(deletedLot.id);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lots"] });
+      toast({ title: "Success", description: "Lot deleted successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const handleCreateSubmit = (values: CreateLot) => {
@@ -141,7 +209,7 @@ export default function Inventory() {
   };
 
   const filteredLots = useMemo(() => {
-    return lots.filter((lot) => {
+    return (lotsData || []).filter((lot) => {
       const matchesStatus = selectedStatus === "all" || lot.status === selectedStatus;
       const matchesSearch =
         lot.block_number.includes(searchTerm) ||
@@ -149,14 +217,30 @@ export default function Inventory() {
         (lot.location || "").toLowerCase().includes(searchTerm.toLowerCase());
       return matchesStatus && matchesSearch;
     });
-  }, [lots, selectedStatus, searchTerm]);
+  }, [lotsData, selectedStatus, searchTerm]);
 
   const stats = useMemo(() => ({
-    total: lots.length,
-    available: lots.filter(lot => lot.status === "available").length,
-    reserved: lots.filter(lot => lot.status === "reserved").length,
-    sold: lots.filter(lot => lot.status === "sold").length,
-  }), [lots]);
+    total: (lotsData || []).length,
+    available: (lotsData || []).filter(lot => lot.status === "available").length,
+    reserved: (lotsData || []).filter(lot => lot.status === "reserved").length,
+    sold: (lotsData || []).filter(lot => lot.status === "sold").length,
+  }), [lotsData]);
+
+  if (lotsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p>Loading inventory...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500">Failed to load inventory: {error.message}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -207,8 +291,8 @@ export default function Inventory() {
                 <Label htmlFor="description">Description</Label>
                 <Textarea id="description" {...register("description")} />
               </div>
-              <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
-                {createMutation.isLoading ? "Adding..." : "Add Lot"}
+              <Button className="w-full" type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Adding..." : "Add Lot"}
               </Button>
             </form>
           </DialogContent>
@@ -284,14 +368,12 @@ export default function Inventory() {
       </div>
 
       {editingLot && (
-        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader><DialogTitle>Edit Lot</DialogTitle></DialogHeader>
-            <form onSubmit={handleSubmit(handleUpdateSubmit)} className="space-y-4">
-              {/* Form fields are pre-filled using react-hook-form's reset method */}
-            </form>
-          </DialogContent>
-        </Dialog>
+        <EditLotDialog
+            lot={editingLot}
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            onUpdate={handleUpdateSubmit}
+        />
       )}
     </div>
   );

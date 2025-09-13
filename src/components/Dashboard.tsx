@@ -2,8 +2,13 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAppStore } from "@/stores";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { listLeads } from "@/services/leads";
+import { listClients } from "@/services/clients";
+import { listLots } from "@/services/lots";
+import { listPayments } from "@/services/payments";
+import { listAppointments } from "@/services/appointments";
 import { useRealtimeStore } from "@/hooks/useRealtimeStore";
 import {
   Users,
@@ -17,19 +22,38 @@ import {
 
 export function Dashboard() {
   useRealtimeStore();
-  const { 
-    leads,
-    appointments,
-    payments,
-    clients,
-    lots
-  } = useAppStore();
+  
+  // Fetch real data from database
+  const { data: leads = [] } = useQuery({
+    queryKey: ["leads"],
+    queryFn: listLeads,
+  });
+  
+  const { data: clients = [] } = useQuery({
+    queryKey: ["clients"],
+    queryFn: listClients,
+  });
+  
+  const { data: lots = [] } = useQuery({
+    queryKey: ["lots"],
+    queryFn: listLots,
+  });
+  
+  const { data: payments = [] } = useQuery({
+    queryKey: ["payments"],
+    queryFn: listPayments,
+  });
+  
+  const { data: appointments = [] } = useQuery({
+    queryKey: ["appointments"],
+    queryFn: listAppointments,
+  });
 
   const todayStats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const todayLeads = leads.filter(lead => lead.created_at.startsWith(today));
     const todayAppointments = appointments.filter(apt => apt.scheduled_date === today);
-    const todayPayments = payments.filter(p => p.created_at.startsWith(today));
+    const todayPayments = payments.filter(p => p.created_at.startsWith(today) && p.status === 'confirmed');
     
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
@@ -157,7 +181,7 @@ export function Dashboard() {
                 <div key={appointment.id} className="flex items-center gap-4 p-3 border border-border rounded-lg">
                   <div className="flex-shrink-0"><Clock className="w-4 h-4 text-muted-foreground" /></div>
                   <div className="flex-1">
-                    <h4 className="font-medium">{(appointment.clients as any)?.name}</h4>
+                    <h4 className="font-medium">{(appointment.clients as any)?.name || 'Unknown Client'}</h4>
                     <p className="text-sm text-muted-foreground">{appointment.type}</p>
                   </div>
                   <Badge variant="outline">{appointment.scheduled_time}</Badge>

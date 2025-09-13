@@ -110,5 +110,12 @@ export function useRealtimeStore() {
       appointmentSubscription.unsubscribe();
       taskSubscription.unsubscribe();
     };
-  }, []); // Empty dependency array - Zustand selectors are stable
+  }, [
+    addLead, updateLead, deleteLead,
+    addClient, updateClient, deleteClient,
+    addLot, updateLot, deleteLot,
+    addPayment, updatePayment, deletePayment,
+    addAppointment, updateAppointment, deleteAppointment,
+    addTask, updateTask, deleteTask
+  ]);
 }

@@ -1,7 +1,10 @@
+
 import { createBrowserRouter, Navigate } from "react-router-dom";
-import { useSession } from "@supabase/auth-helpers-react";
+import { useUser, useSessionContext } from "@supabase/auth-helpers-react";
+
 import { Layout } from "@/components/Layout";
 import { Dashboard } from "@/components/Dashboard";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import Leads from "./pages/Leads";
 import Inventory from "./pages/Inventory";
 import Clients from "./pages/Clients";
@@ -12,10 +15,17 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const session = useSession();
-  if (!session) {
+  const { isLoading } = useSessionContext();
+  const user = useUser();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
+
   return <>{children}</>;
 };
 
@@ -23,9 +33,11 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <Layout>
-        <Dashboard />
-      </Layout>
+      <ProtectedRoute>
+        <Layout>
+          <Dashboard />
+        </Layout>
+      </ProtectedRoute>
     ),
   },
   {

@@ -9,7 +9,6 @@ import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listClients, createClient, updateClient, deleteClient, onClientsChange, listDocumentsByClient, insertDocumentRecord } from "@/services/clients";
 import { uploadClientDocument, createSignedUrl } from "@/services/storage";
-import { useAppStore } from "@/stores";
 import { CreateClientSchema, UpdateClientSchema, type CreateClient, type UpdateClient, CreateCommunicationSchema, type CreateCommunication } from "@/types/validation";
 import { Client as ClientEntity, Document as DocumentEntity, Communication as CommunicationEntity } from "@/types/entities";
 import { listCommunications, createCommunication } from "@/services/communications";
@@ -52,13 +51,6 @@ export default function Clients() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const {
-    clients,
-    setClients,
-    deleteClient: removeClientFromStore,
-    updateClient: updateClientInStore,
-    setLoading
-  } = useAppStore();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -66,20 +58,10 @@ export default function Clients() {
   const [selectedClient, setSelectedClient] = useState<ClientEntity | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: clientsData = [], isLoading: clientsLoading } = useQuery({
+  const { data: clientsData = [], isLoading: clientsLoading, isError, error } = useQuery({
     queryKey: ["clients"],
     queryFn: listClients,
   });
-
-  useEffect(() => {
-    if (clientsData.length > 0) {
-      setClients(clientsData);
-    }
-  }, [clientsData]);
-
-  useEffect(() => {
-    setLoading('clients', clientsLoading);
-  }, [clientsLoading]);
 
   useEffect(() => {
     const channel = onClientsChange(() => {
@@ -100,25 +82,35 @@ export default function Clients() {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       reset();
       setDialogOpen(false);
+      toast({ title: "Success", description: "Client created successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateClient }) => updateClient(id, data),
-    onSuccess: (updatedClient) => {
-      updateClientInStore(updatedClient.id, updatedClient);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       setEditDialogOpen(false);
       setEditingClient(null);
+      toast({ title: "Success", description: "Client updated successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteClient,
-    onSuccess: (deletedClient) => {
-      removeClientFromStore(deletedClient.id);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast({ title: "Success", description: "Client deleted successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const handleCreateSubmit = (values: CreateClient) => {
@@ -132,10 +124,10 @@ export default function Clients() {
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const file = e.target.files?.[0];
-      if (!file || !selectedClient) return;
+    const file = e.target.files?.[0];
+    if (!file || !selectedClient) return;
 
+    try {
       const { filePath } = await uploadClientDocument(selectedClient.id, file);
       await insertDocumentRecord({
         client_id: selectedClient.id,
@@ -146,23 +138,22 @@ export default function Clients() {
         status: "pending",
       });
 
-      // Refresh document list
       queryClient.invalidateQueries({ queryKey: ["documents", selectedClient.id] });
-
       toast({ title: "Document uploaded", description: file.name });
-      e.target.value = "";
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      e.target.value = "";
     }
   };
 
   const filteredClients = useMemo(() => {
-    return clients.filter((client) =>
+    return (clientsData || []).filter((client) =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.phone || "").includes(searchTerm)
     );
-  }, [clients, searchTerm]);
+  }, [clientsData, searchTerm]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -185,6 +176,22 @@ export default function Clients() {
       </Badge>
     );
   };
+
+  if (clientsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p>Loading clients...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500">Failed to load clients: {error.message}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -223,8 +230,8 @@ export default function Clients() {
                 <Label htmlFor="address">Address</Label>
                 <Textarea id="address" {...register("address")} />
               </div>
-              <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
-                {createMutation.isLoading ? "Adding..." : "Add Client"}
+              <Button className="w-full" type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Adding..." : "Add Client"}
               </Button>
             </form>
           </DialogContent>
@@ -369,6 +376,7 @@ function DocumentsTable({ clientId }: { clientId: string }) {
 
 function CommunicationsTab({ clientId }: { clientId: string }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: communications = [], isLoading } = useQuery({
     queryKey: ["communications", clientId],
     queryFn: () => listCommunications(clientId),
@@ -378,6 +386,10 @@ function CommunicationsTab({ clientId }: { clientId: string }) {
     mutationFn: createCommunication,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["communications", clientId] });
+      toast({ title: "Success", description: "Communication logged successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 

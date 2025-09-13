@@ -9,7 +9,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listAppointments, createAppointment, updateAppointment, deleteAppointment } from "@/services/appointments";
 import { listTasks, createTask, updateTask, deleteTask } from "@/services/tasks";
 import { listClients } from "@/services/clients";
-import { useAppStore } from "@/stores";
 import { CreateAppointmentSchema, type CreateAppointment, type UpdateAppointment } from "@/types/validation";
 import { CreateTaskSchema, type CreateTask, type UpdateTask } from "@/types/validation";
 import { Appointment as AppointmentEntity, Task as TaskEntity, Client as ClientEntity, Profile as ProfileEntity } from "@/types/entities";
@@ -52,17 +51,6 @@ import {
 
 export default function Calendar() {
   const queryClient = useQueryClient();
-  const { 
-    appointments,
-    setAppointments,
-    tasks,
-    setTasks,
-    clients, 
-    setClients,
-    setLoading,
-    openDialogOnLoad,
-    setOpenDialogOnLoad,
-  } = useAppStore();
 
   const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -82,39 +70,6 @@ export default function Calendar() {
     queryKey: ["clients"],
     queryFn: listClients,
   });
-
-  useEffect(() => {
-    if (openDialogOnLoad === 'appointment') {
-      setAppointmentDialogOpen(true);
-      setOpenDialogOnLoad(null);
-    }
-  }, [openDialogOnLoad]);
-
-  useEffect(() => {
-    if (appointmentsData.length > 0) {
-      setAppointments(appointmentsData);
-    }
-  }, [appointmentsData]);
-
-  useEffect(() => {
-    if (tasksData.length > 0) {
-      setTasks(tasksData);
-    }
-  }, [tasksData]);
-
-  useEffect(() => {
-    if (clientsData.length > 0) {
-      setClients(clientsData);
-    }
-  }, [clientsData]);
-
-  useEffect(() => {
-    setLoading('appointments', appointmentsLoading);
-  }, [appointmentsLoading]);
-
-  useEffect(() => {
-    setLoading('tasks', tasksLoading);
-  }, [tasksLoading]);
 
   const { register: registerAppointment, handleSubmit: handleAppointmentSubmit, reset: resetAppointment, setValue: setAppointmentValue, formState: { errors: appointmentErrors } } = useForm<CreateAppointment>({
     resolver: zodResolver(CreateAppointmentSchema),
@@ -165,16 +120,16 @@ export default function Calendar() {
   };
 
   const todayAppointments = useMemo(() => {
-    return appointments.filter(apt => apt.scheduled_date === selectedDate);
-  }, [appointments, selectedDate]);
+    return (appointmentsData || []).filter(apt => apt.scheduled_date === selectedDate);
+  }, [appointmentsData, selectedDate]);
 
   const todayTasks = useMemo(() => {
-    return tasks.filter(task => task.due_date === selectedDate);
-  }, [tasks, selectedDate]);
+    return (tasksData || []).filter(task => task.due_date === selectedDate);
+  }, [tasksData, selectedDate]);
 
   const upcomingAppointments = useMemo(() => {
-    return appointments.filter(apt => apt.scheduled_date > selectedDate);
-  }, [appointments, selectedDate]);
+    return (appointmentsData || []).filter(apt => apt.scheduled_date > selectedDate);
+  }, [appointmentsData, selectedDate]);
 
 
   const getStatusBadge = (status: string) => {
@@ -266,15 +221,15 @@ export default function Calendar() {
                       <SelectItem value="low">Low</SelectItem>
                     </SelectContent>
                   </Select>
-                  {taskErrors.priority && <p className="text-sm text-red-500">{taskErrors.priority.message}</p>}
+                  {taskErrors.priority && <p className-="text-sm text-red-500">{taskErrors.priority.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taskDue">Due Date</Label>
                   <Input id="taskDue" type="date" {...registerTask("due_date")} />
                   {taskErrors.due_date && <p className="text-sm text-red-500">{taskErrors.due_date.message}</p>}
                 </div>
-                <Button className="w-full" type="submit" disabled={createTaskMutation.isLoading}>
-                  {createTaskMutation.isLoading ? "Adding..." : "Add Task"}
+                <Button className="w-full" type="submit" disabled={createTaskMutation.isPending}>
+                  {createTaskMutation.isPending ? "Adding..." : "Add Task"}
                 </Button>
               </form>
             </DialogContent>
@@ -291,7 +246,7 @@ export default function Calendar() {
                   <Select onValueChange={(value) => setAppointmentValue("client_id", value)}>
                     <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                     <SelectContent>
-                      {clients.map(client => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}
+                      {(clientsData || []).map(client => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {appointmentErrors.client_id && <p className="text-sm text-red-500">{appointmentErrors.client_id.message}</p>}
@@ -329,8 +284,8 @@ export default function Calendar() {
                   <Label htmlFor="aptNotes">Notes</Label>
                   <Textarea id="aptNotes" {...registerAppointment("notes")} />
                 </div>
-                <Button className="w-full" type="submit" disabled={createAppointmentMutation.isLoading}>
-                  {createAppointmentMutation.isLoading ? "Scheduling..." : "Schedule Appointment"}
+                <Button className="w-full" type="submit" disabled={createAppointmentMutation.isPending}>
+                  {createAppointmentMutation.isPending ? "Scheduling..." : "Schedule Appointment"}
                 </Button>
               </form>
             </DialogContent>

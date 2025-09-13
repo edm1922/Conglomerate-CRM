@@ -59,6 +59,7 @@ import {
 import { calculateLeadScore } from "@/lib/utils";
 import type { Lead as LeadEntity, Reminder as ReminderEntity } from "@/types/entities";
 import { runAutomatedFollowUp } from "@/services/workflows";
+import { useToast } from "@/hooks/use-toast";
 
 type Lead = LeadEntity;
 
@@ -198,14 +199,10 @@ function CommunicationHistory({ lead }: { lead: Lead }) {
 
 export default function Leads() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const {
-    leads,
     filters,
-    openDialogOnLoad,
-    setLeads,
     setLeadFilter,
-    setLoading,
-    setOpenDialogOnLoad,
   } = useAppStore();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -215,7 +212,7 @@ export default function Leads() {
   const [remindingLead, setRemindingLead] = useState<Lead | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  const { data: leadsData = [], isLoading: leadsLoading } = useQuery({
+  const { data: leadsData = [], isLoading: leadsLoading, isError: leadsIsError, error: leadsError } = useQuery({
     queryKey: ["leads"],
     queryFn: listLeads,
   });
@@ -224,21 +221,6 @@ export default function Leads() {
     queryKey: ["reminders"],
     queryFn: listReminders,
   });
-
-  useEffect(() => {
-    if (openDialogOnLoad === 'lead') {
-      setDialogOpen(true);
-      setOpenDialogOnLoad(null);
-    }
-  }, [openDialogOnLoad]);
-
-  useEffect(() => {
-    setLeads(leadsData);
-  }, [leadsData]);
-
-  useEffect(() => {
-    setLoading('leads', leadsLoading);
-  }, [leadsLoading]);
 
   useEffect(() => {
     const channel = onLeadsChange(() => {
@@ -267,7 +249,11 @@ export default function Leads() {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       reset();
       setDialogOpen(false);
+      toast({ title: "Success", description: "Lead created successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const updateMutation = useMutation({
@@ -276,16 +262,25 @@ export default function Leads() {
         return updateLead(id, { ...data, score });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
       setEditDialogOpen(false);
       setEditingLead(null);
+      toast({ title: "Success", description: "Lead updated successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteLead,
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["leads"] });
+        toast({ title: "Success", description: "Lead deleted successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const convertMutation = useMutation({
@@ -293,10 +288,10 @@ export default function Leads() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
-      alert(`Lead converted to client successfully!`);
+      toast({ title: "Success", description: "Lead converted to client successfully." });
     },
-    onError: (error) => {
-      alert(`Failed to convert lead: ${error.message}`);
+    onError: (error: Error) => {
+      toast({ title: "Error", description: `Failed to convert lead: ${error.message}`, variant: "destructive" });
     },
   });
 
@@ -305,17 +300,21 @@ export default function Leads() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
       setReminderDialogOpen(false);
+      toast({ title: "Success", description: "Reminder set successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
   
   const automatedFollowUpMutation = useMutation({
     mutationFn: runAutomatedFollowUp,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
-      alert("Automated follow-up completed successfully!");
+      toast({ title: "Success", description: "Automated follow-up completed successfully!" });
     },
-    onError: (error) => {
-      alert(`Automated follow-up failed: ${error.message}`);
+    onError: (error: Error) => {
+      toast({ title: "Error", description: `Automated follow-up failed: ${error.message}`, variant: "destructive" });
     },
   });
 
@@ -334,11 +333,11 @@ export default function Leads() {
   };
 
   const sendEmail = (lead: Lead) => {
-    alert(`Sending email to ${lead.name} at ${lead.email}`);
+    toast({ title: "Info", description: `Sending email to ${lead.name} at ${lead.email}` });
   };
 
   const sendSMS = (lead: Lead) => {
-    alert(`Sending SMS to ${lead.name} at ${lead.phone}`);
+    toast({ title: "Info", description: `Sending SMS to ${lead.name} at ${lead.phone}` });
   };
 
   const getStatusBadge = (status: string) => {
@@ -360,7 +359,7 @@ export default function Leads() {
 
   const filteredLeads = useMemo(() => {
     const { status, source, search } = filters.leads;
-    return leads.filter((lead) => {
+    return (leadsData || []).filter((lead) => {
       const matchesStatus = status === "all" || (lead.status || "").toLowerCase() === status.toLowerCase();
       const matchesSource = source === "all" || (lead.source || "").toLowerCase() === source.toLowerCase();
       const matchesSearch = (lead.name || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -368,7 +367,23 @@ export default function Leads() {
                            (lead.phone || "").includes(search);
       return matchesStatus && matchesSearch && matchesSource;
     });
-  }, [leads, filters.leads]);
+  }, [leadsData, filters.leads]);
+
+  if (leadsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p>Loading leads...</p>
+      </div>
+    );
+  }
+
+  if (leadsIsError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500">Failed to load leads: {leadsError.message}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -381,7 +396,7 @@ export default function Leads() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button className="gap-2" variant="outline" onClick={() => automatedFollowUpMutation.mutate()} disabled={automatedFollowUpMutation.isLoading}>
+            <Button className="gap-2" variant="outline" onClick={() => automatedFollowUpMutation.mutate()} disabled={automatedFollowUpMutation.isPending}>
                 <Zap className="w-4 h-4" />
                 Run Automated Follow-up
             </Button>
@@ -435,8 +450,8 @@ export default function Leads() {
                     <Label htmlFor="notes">Notes</Label>
                     <Textarea id="notes" {...register("notes")} />
                   </div>
-                  <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
-                    {createMutation.isLoading ? "Adding..." : "Add Lead"}
+                  <Button className="w-full" type="submit" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? "Adding..." : "Add Lead"}
                   </Button>
                 </form>
               </DialogContent>
@@ -477,7 +492,7 @@ export default function Leads() {
                     <SelectItem value="Walk-in">Walk-in</SelectItem>
                     <SelectItem value="Referral">Referral</SelectItem>
                   </SelectContent>
-_                </Select>
+                </Select>
               </div>
             </div>
           </CardContent>
@@ -485,7 +500,7 @@ _                </Select>
 
         <Card>
           <CardHeader>
-            <CardTitle>All Leads ({leadsLoading ? "..." : filteredLeads.length})</CardTitle>
+            <CardTitle>All Leads ({filteredLeads.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -501,7 +516,7 @@ _                </Select>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(!leadsLoading ? filteredLeads : []).map((lead) => (
+                {filteredLeads.map((lead) => (
                   <TableRow key={lead.id} onClick={() => setSelectedLead(lead)}>
                     <TableCell>
                       <div className="font-medium">{lead.name}</div>
@@ -529,7 +544,7 @@ _                </Select>
                             variant="ghost" 
                             size="icon"
                             onClick={() => convertMutation.mutate(lead.id)}
-                            disabled={convertMutation.isLoading}
+                            disabled={convertMutation.isPending}
                             title="Convert to Client"
                           >
                             <UserCheck className="w-4 h-4" />
@@ -590,13 +605,14 @@ _                </Select>
                           {remindersData.map(r => (
                               <li key={r.id} className="flex justify-between items-center p-2 rounded-md bg-gray-100">
                                   <div>
-                                    <p className="font-semibold">{leads.find(l => l.id === r.lead_id)?.name}</p>
+                                    <p className="font-semibold">{(leadsData || []).find(l => l.id === r.lead_id)?.name}</p>
                                     <p className="text-sm text-gray-500">{new Date(r.reminder_date).toLocaleDateString()}</p>
                                     <p className="text-sm">{r.notes}</p>
                                   </div>
                                   <Button size="sm" variant="outline" onClick={() => deleteReminder(r.id)}>Done</Button>
                               </li>
-                          ))}
+                          ))
+                          }
                       </ul>
                   )}
               </CardContent>

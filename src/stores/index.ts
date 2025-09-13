@@ -1,21 +1,8 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { Lead, Client, Lot, Payment, Appointment, Task, Document } from '@/types/entities';
-import { 
-  loadLeads, loadClients, loadLots, loadPayments, loadAppointments, loadTasks
-} from '@/services/storage';
 
 interface AppState {
-  // Loading states
-  loading: {
-    leads: boolean;
-    clients: boolean;
-    lots: boolean;
-    payments: boolean;
-    appointments: boolean;
-    tasks: boolean;
-  };
-  
   // Data
   leads: Lead[];
   clients: Client[];
@@ -56,40 +43,35 @@ interface AppState {
     };
   };
   
-  // Actions
-  setLoading: (entity: keyof AppState['loading'], loading: boolean) => void;
-  setOpenDialogOnLoad: (dialog: AppState['openDialogOnLoad']) => void;
-  
-  // Lead actions
+  // Data actions
   setLeads: (leads: Lead[]) => void;
   addLead: (lead: Lead) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
   setSelectedLead: (lead: Lead | null) => void;
-  setLeadFilter: (key: keyof AppState['filters']['leads'], value: string) => void;
   
-  // Client actions
   setClients: (clients: Client[]) => void;
   addClient: (client: Client) => void;
   updateClient: (id: string, updates: Partial<Client>) => void;
   deleteClient: (id: string) => void;
   setSelectedClient: (client: Client | null) => void;
-  setClientFilter: (key: keyof AppState['filters']['clients'], value: string) => void;
   
-  // Lot actions
   setLots: (lots: Lot[]) => void;
   addLot: (lot: Lot) => void;
   updateLot: (id: string, updates: Partial<Lot>) => void;
   deleteLot: (id: string) => void;
   setSelectedLot: (lot: Lot | null) => void;
-  setLotFilter: (key: keyof AppState['filters']['lots'], value: string) => void;
   
-  // Payment actions
   setPayments: (payments: Payment[]) => void;
   addPayment: (payment: Payment) => void;
   updatePayment: (id: string, updates: Partial<Payment>) => void;
   deletePayment: (id: string) => void;
   setSelectedPayment: (payment: Payment | null) => void;
+  
+  // Filter actions
+  setLeadFilter: (key: keyof AppState['filters']['leads'], value: string) => void;
+  setClientFilter: (key: keyof AppState['filters']['clients'], value: string) => void;
+  setLotFilter: (key: keyof AppState['filters']['lots'], value: string) => void;
   setPaymentFilter: (key: keyof AppState['filters']['payments'], value: string) => void;
   
   // Appointment actions
@@ -106,19 +88,14 @@ interface AppState {
   deleteTask: (id: string) => void;
   setSelectedTask: (task: Task | null) => void;
   
+  // UI actions
+  setOpenDialogOnLoad: (dialog: 'lead' | 'payment' | 'appointment' | null) => void;
+  
   // Utility actions
   reset: () => void;
 }
 
 const initialState = {
-  loading: {
-    leads: false,
-    clients: false,
-    lots: false,
-    payments: false,
-    appointments: false,
-    tasks: false,
-  },
   leads: [],
   clients: [],
   lots: [],
@@ -161,13 +138,6 @@ export const useAppStore = create<AppState>()(
       (set, get) => ({
         ...initialState,
         
-        setLoading: (entity, loading) => 
-          set((state) => ({ 
-            loading: { ...state.loading, [entity]: loading } 
-          }), false, `setLoading/${entity}`),
-          
-        setOpenDialogOnLoad: (dialog) => set({ openDialogOnLoad: dialog }, false, 'setOpenDialogOnLoad'),
-        
         // Lead actions
         setLeads: (leads) => 
           set({ leads }, false, 'setLeads'),
@@ -193,14 +163,6 @@ export const useAppStore = create<AppState>()(
           set((state) => ({ 
             selectedItems: { ...state.selectedItems, lead } 
           }), false, 'setSelectedLead'),
-        
-        setLeadFilter: (key, value) => 
-          set((state) => ({ 
-            filters: { 
-              ...state.filters, 
-              leads: { ...state.filters.leads, [key]: value } 
-            } 
-          }), false, 'setLeadFilter'),
         
         // Client actions
         setClients: (clients) => 
@@ -228,14 +190,6 @@ export const useAppStore = create<AppState>()(
             selectedItems: { ...state.selectedItems, client } 
           }), false, 'setSelectedClient'),
         
-        setClientFilter: (key, value) => 
-          set((state) => ({ 
-            filters: { 
-              ...state.filters, 
-              clients: { ...state.filters.clients, [key]: value } 
-            } 
-          }), false, 'setClientFilter'),
-        
         // Lot actions
         setLots: (lots) => 
           set({ lots }, false, 'setLots'),
@@ -262,14 +216,6 @@ export const useAppStore = create<AppState>()(
             selectedItems: { ...state.selectedItems, lot } 
           }), false, 'setSelectedLot'),
         
-        setLotFilter: (key, value) => 
-          set((state) => ({ 
-            filters: { 
-              ...state.filters, 
-              lots: { ...state.filters.lots, [key]: value } 
-            } 
-          }), false, 'setLotFilter'),
-        
         // Payment actions
         setPayments: (payments) => 
           set({ payments }, false, 'setPayments'),
@@ -295,6 +241,31 @@ export const useAppStore = create<AppState>()(
           set((state) => ({ 
             selectedItems: { ...state.selectedItems, payment } 
           }), false, 'setSelectedPayment'),
+        
+        // Filter actions
+        setLeadFilter: (key, value) => 
+          set((state) => ({ 
+            filters: { 
+              ...state.filters, 
+              leads: { ...state.filters.leads, [key]: value } 
+            } 
+          }), false, 'setLeadFilter'),
+        
+        setClientFilter: (key, value) => 
+          set((state) => ({ 
+            filters: { 
+              ...state.filters, 
+              clients: { ...state.filters.clients, [key]: value } 
+            } 
+          }), false, 'setClientFilter'),
+        
+        setLotFilter: (key, value) => 
+          set((state) => ({ 
+            filters: { 
+              ...state.filters, 
+              lots: { ...state.filters.lots, [key]: value } 
+            } 
+          }), false, 'setLotFilter'),
         
         setPaymentFilter: (key, value) => 
           set((state) => ({ 
@@ -355,6 +326,10 @@ export const useAppStore = create<AppState>()(
           set((state) => ({ 
             selectedItems: { ...state.selectedItems, task } 
           }), false, 'setSelectedTask'),
+        
+        // UI actions
+        setOpenDialogOnLoad: (dialog) => 
+          set({ openDialogOnLoad: dialog }, false, 'setOpenDialogOnLoad'),
         
         // Utility actions
         reset: () => 

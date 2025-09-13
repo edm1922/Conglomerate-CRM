@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAppStore } from "@/stores";
 import { useNavigate } from "react-router-dom";
 import {
@@ -30,6 +32,7 @@ export function TopNavbar() {
   } = useAppStore();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   const notifications = [
     ...(leads.slice(0,2).map(l => ({ type: 'lead', message: `New lead: ${l.name}` }))),
@@ -40,10 +43,12 @@ export function TopNavbar() {
     getSession().then((session) => {
       const user = session?.user;
       setDisplayName(user?.user_metadata?.full_name || user?.email || null);
+      setIsLoadingUser(false);
     });
     const sub = onAuthStateChange((session) => {
       const user = session?.user;
       setDisplayName(user?.user_metadata?.full_name || user?.email || null);
+      setIsLoadingUser(false);
     });
     return () => {
       sub.unsubscribe?.();
@@ -58,15 +63,18 @@ export function TopNavbar() {
   return (
     <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 shadow-sm">
       <div className="flex items-center gap-4">
-        <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">
-            Conglomerate Realty CRM
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {displayName ? `Welcome back, ${displayName}` : "Welcome"}
-          </p>
-        </div>
+        <SidebarTrigger className="text-muted-foreground hover:text-foreground" />          <div>
+            <h1 className="text-lg font-semibold text-foreground">
+              Conglomerate Realty CRM
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isLoadingUser ? (
+                <Skeleton className="h-3 w-32" />
+              ) : (
+                displayName ? `Welcome back, ${displayName}` : "Welcome"
+              )}
+            </p>
+          </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -115,8 +123,18 @@ export function TopNavbar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="gap-2">
-              <User className="w-4 h-4" />
-              <span className="hidden md:inline">{displayName || "Account"}</span>
+              {isLoadingUser ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
+              <span className="hidden md:inline">
+                {isLoadingUser ? (
+                  <Skeleton className="h-4 w-16" />
+                ) : (
+                  displayName || "Account"
+                )}
+              </span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

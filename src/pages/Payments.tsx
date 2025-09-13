@@ -8,7 +8,6 @@ import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listPayments, createPayment, updatePayment, deletePayment, onPaymentsChange } from "@/services/payments";
 import { listClients } from "@/services/clients";
-import { useAppStore } from "@/stores";
 import { CreatePaymentSchema, type CreatePayment, type UpdatePayment } from "@/types/validation";
 import { Payment as PaymentEntity, Client as ClientEntity } from "@/types/entities";
 import {
@@ -46,24 +45,17 @@ import {
   Banknote,
   Trash2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Payments() {
   const queryClient = useQueryClient();
-  const { 
-    payments, 
-    setPayments,
-    clients, 
-    setClients,
-    setLoading,
-    openDialogOnLoad,
-    setOpenDialogOnLoad,
-  } = useAppStore();
+  const { toast } = useToast();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<string>("all");
 
-  const { data: paymentsData = [], isLoading: paymentsLoading } = useQuery({
+  const { data: paymentsData = [], isLoading: paymentsLoading, isError, error } = useQuery({
     queryKey: ["payments"],
     queryFn: listPayments,
   });
@@ -72,29 +64,6 @@ export default function Payments() {
     queryKey: ["clients"],
     queryFn: listClients,
   });
-
-  useEffect(() => {
-    if (openDialogOnLoad === 'payment') {
-      setDialogOpen(true);
-      setOpenDialogOnLoad(null);
-    }
-  }, [openDialogOnLoad]);
-
-  useEffect(() => {
-    if (paymentsData.length > 0) {
-      setPayments(paymentsData);
-    }
-  }, [paymentsData]);
-
-  useEffect(() => {
-    if (clientsData.length > 0) {
-      setClients(clientsData);
-    }
-  }, [clientsData]);
-
-  useEffect(() => {
-    setLoading('payments', paymentsLoading);
-  }, [paymentsLoading]);
 
   useEffect(() => {
     const channel = onPaymentsChange(() => {
@@ -115,14 +84,22 @@ export default function Payments() {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
       reset();
       setDialogOpen(false);
+      toast({ title: "Success", description: "Payment recorded successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: deletePayment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
+      toast({ title: "Success", description: "Payment deleted successfully." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const handleCreateSubmit = (values: CreatePayment) => {
@@ -137,7 +114,7 @@ export default function Payments() {
   ];
 
   const filteredPayments = useMemo(() => {
-    return payments.filter((payment) => {
+    return (paymentsData || []).filter((payment) => {
       const clientName = (payment.clients as ClientEntity)?.name || "";
       const matchesSearch =
         clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -147,7 +124,7 @@ export default function Payments() {
         payment.payment_method.toLowerCase().replace(" ", "-") === selectedMethod;
       return matchesSearch && matchesMethod;
     });
-  }, [payments, searchTerm, selectedMethod]);
+  }, [paymentsData, searchTerm, selectedMethod]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -184,17 +161,33 @@ export default function Payments() {
   };
 
   const todayStats = {
-    totalCollected: payments
+    totalCollected: (paymentsData || [])
       .filter(p => new Date(p.created_at).toDateString() === new Date().toDateString() && p.status === "confirmed")
       .reduce((sum, p) => sum + p.amount, 0),
-    totalTransactions: payments.filter(p => new Date(p.created_at).toDateString() === new Date().toDateString()).length,
-    cashPayments: payments
+    totalTransactions: (paymentsData || []).filter(p => new Date(p.created_at).toDateString() === new Date().toDateString()).length,
+    cashPayments: (paymentsData || [])
       .filter(p => new Date(p.created_at).toDateString() === new Date().toDateString() && p.payment_method === "Cash")
       .reduce((sum, p) => sum + p.amount, 0),
-    digitalPayments: payments
+    digitalPayments: (paymentsData || [])
       .filter(p => new Date(p.created_at).toDateString() === new Date().toDateString() && ["Bank Transfer", "GCash"].includes(p.payment_method))
       .reduce((sum, p) => sum + p.amount, 0),
   };
+
+  if (paymentsLoading || clientsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p>Loading payments...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500">Failed to load payments: {error.message}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -220,7 +213,7 @@ export default function Payments() {
                 <Select onValueChange={(value) => setValue("client_id", value)}>
                   <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                   <SelectContent>
-                    {clients.map((client) => (
+                    {(clientsData || []).map((client) => (
                       <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -271,8 +264,8 @@ export default function Payments() {
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea id="notes" {...register("notes")} />
               </div>
-              <Button className="w-full" type="submit" disabled={createMutation.isLoading}>
-                {createMutation.isLoading ? "Recording..." : "Record Payment"}
+              <Button className="w-full" type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Recording..." : "Record Payment"}
               </Button>
             </form>
           </DialogContent>
