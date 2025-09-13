@@ -60,6 +60,7 @@ import { calculateLeadScore } from "@/lib/utils";
 import type { Lead as LeadEntity, Reminder as ReminderEntity } from "@/types/entities";
 import { runAutomatedFollowUp } from "@/services/workflows";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@supabase/auth-helpers-react";
 
 type Lead = LeadEntity;
 
@@ -146,15 +147,23 @@ function EditLeadDialog({ lead, open, onOpenChange, onUpdate }: { lead: Lead; op
 }
 
 function ReminderDialog({ lead, open, onOpenChange, onCreate }: { lead: Lead; open: boolean; onOpenChange: (open: boolean) => void; onCreate: (data: CreateReminder) => void; }) {
+  const user = useUser();
+  const { toast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateReminder>({
     resolver: zodResolver(CreateReminderSchema),
   });
 
   useEffect(() => {
-    if (open) {
-      reset({ lead_id: lead.id, user_id: '' });
+    if (open && user?.id) {
+      reset({ 
+        lead_id: lead.id, 
+        user_id: user.id,
+        reminder_date: '',
+        notes: '',
+        status: 'pending'
+      });
     }
-  }, [open, lead, reset]);
+  }, [open, lead, user, reset]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,7 +173,23 @@ function ReminderDialog({ lead, open, onOpenChange, onCreate }: { lead: Lead; op
         </DialogHeader>
         <form
           className="space-y-4"
-          onSubmit={handleSubmit(onCreate)}
+          onSubmit={handleSubmit((data) => {
+            if (!user?.id) {
+              toast({
+                title: "Authentication Error",
+                description: "You must be logged in to set reminders.",
+                variant: "destructive",
+              });
+              return;
+            }
+            // Convert date to ISO format
+            const reminderData = {
+              ...data,
+              user_id: user.id,
+              reminder_date: new Date(data.reminder_date + 'T00:00:00Z').toISOString(),
+            };
+            onCreate(reminderData);
+          })}
         >
           <div className="space-y-2">
             <Label htmlFor="reminder_date">Reminder Date</Label>
@@ -304,6 +329,17 @@ export default function Leads() {
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const deleteReminderMutation = useMutation({
+    mutationFn: deleteReminder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      toast({ title: "Success", description: "Reminder marked as done!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: `Failed to complete reminder: ${error.message}`, variant: "destructive" });
     }
   });
   
@@ -609,7 +645,14 @@ export default function Leads() {
                                     <p className="text-sm text-gray-500">{new Date(r.reminder_date).toLocaleDateString()}</p>
                                     <p className="text-sm">{r.notes}</p>
                                   </div>
-                                  <Button size="sm" variant="outline" onClick={() => deleteReminder(r.id)}>Done</Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => deleteReminderMutation.mutate(r.id)}
+                                    disabled={deleteReminderMutation.isPending}
+                                  >
+                                    {deleteReminderMutation.isPending ? "Updating..." : "Done"}
+                                  </Button>
                               </li>
                           ))
                           }

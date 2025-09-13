@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useUser } from "@supabase/auth-helpers-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,11 +30,11 @@ import {
   listReminders,
   updateReminder,
 } from "@/services/reminders";
-import type { Reminder } from "@/types/entities";
+import { listLeads } from "@/services/leads";
+import type { Reminder, Lead } from "@/types/entities";
 
 const reminderSchema = z.object({
-  lead_id: z.string().min(1, "Lead ID is required"),
-  user_id: z.string().min(1, "User ID is required"),
+  lead_id: z.string().min(1, "Lead is required"),
   reminder_date: z.string().min(1, "Reminder date is required"),
   notes: z.string().optional(),
   status: z.enum(["pending", "completed"]),
@@ -40,7 +42,10 @@ const reminderSchema = z.object({
 
 export default function Reminders() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const user = useUser();
+  const { toast } = useToast();
 
   const {
     register,
@@ -52,7 +57,6 @@ export default function Reminders() {
     resolver: zodResolver(reminderSchema),
     defaultValues: {
       lead_id: "",
-      user_id: "",
       reminder_date: "",
       notes: "",
       status: "pending",
@@ -61,36 +65,102 @@ export default function Reminders() {
 
   useEffect(() => {
     fetchReminders();
+    fetchLeads();
   }, []);
 
   const fetchReminders = async () => {
-    const reminders = await listReminders();
-    setReminders(reminders);
+    try {
+      const reminders = await listReminders();
+      setReminders(reminders);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to fetch reminders: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchLeads = async () => {
+    try {
+      const leads = await listLeads();
+      setLeads(leads);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to fetch leads: ${error.message}`,
+        variant: "destructive",
+      });
+    }
   };
 
   const onSubmit = async (data: z.infer<typeof reminderSchema>) => {
-    if (editingReminder) {
-      await updateReminder(editingReminder.id, data);
-    } else {
-      await createReminder(data);
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create reminders",
+        variant: "destructive",
+      });
+      return;
     }
-    fetchReminders();
-    reset();
-    setEditingReminder(null);
+
+    try {
+      // Convert date to ISO string for database
+      const reminderData = {
+        ...data,
+        user_id: user.id,
+        reminder_date: new Date(data.reminder_date + 'T00:00:00Z').toISOString(),
+      };
+
+      if (editingReminder) {
+        await updateReminder(editingReminder.id, reminderData);
+        toast({
+          title: "Success",
+          description: "Reminder updated successfully",
+        });
+      } else {
+        await createReminder(reminderData);
+        toast({
+          title: "Success",
+          description: "Reminder created successfully",
+        });
+      }
+      fetchReminders();
+      reset();
+      setEditingReminder(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to save reminder: ${error.message}`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEdit = (reminder: Reminder) => {
     setEditingReminder(reminder);
     setValue("lead_id", reminder.lead_id);
-    setValue("user_id", reminder.user_id);
-    setValue("reminder_date", reminder.reminder_date);
-    setValue("notes", reminder.notes);
+    // Convert ISO date to YYYY-MM-DD format for date input
+    setValue("reminder_date", reminder.reminder_date.slice(0, 10));
+    setValue("notes", reminder.notes || "");
     setValue("status", reminder.status);
   };
 
   const handleDelete = async (id: string) => {
-    await deleteReminder(id);
-    fetchReminders();
+    try {
+      await deleteReminder(id);
+      toast({
+        title: "Success",
+        description: "Reminder deleted successfully",
+      });
+      fetchReminders();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to delete reminder: ${error.message}`,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -105,19 +175,23 @@ export default function Reminders() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Lead ID</TableHead>
-                  <TableHead>User ID</TableHead>
+                  <TableHead>Lead</TableHead>
+                  <TableHead>User</TableHead>
                   <TableHead>Reminder Date</TableHead>
+                  <TableHead>Notes</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reminders.map((reminder) => (
+                {reminders.map((reminder) => {
+                  const lead = leads.find(l => l.id === reminder.lead_id);
+                  return (
                   <TableRow key={reminder.id}>
-                    <TableCell>{reminder.lead_id}</TableCell>
+                    <TableCell>{lead?.name || 'Unknown Lead'}</TableCell>
                     <TableCell>{reminder.user_id}</TableCell>
-                    <TableCell>{reminder.reminder_date}</TableCell>
+                    <TableCell>{new Date(reminder.reminder_date).toLocaleDateString()}</TableCell>
+                    <TableCell>{reminder.notes || '-'}</TableCell>
                     <TableCell>{reminder.status}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(reminder)}>
@@ -132,7 +206,8 @@ export default function Reminders() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -146,17 +221,21 @@ export default function Reminders() {
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
-                <Label htmlFor="lead_id">Lead ID</Label>
-                <Input id="lead_id" {...register("lead_id")} />
+                <Label htmlFor="lead_id">Lead</Label>
+                <select
+                  id="lead_id"
+                  {...register("lead_id")}
+                  className="w-full p-2 border border-input rounded-md"
+                >
+                  <option value="">Select a lead...</option>
+                  {leads.map((lead) => (
+                    <option key={lead.id} value={lead.id}>
+                      {lead.name} - {lead.email || lead.phone || 'No contact'}
+                    </option>
+                  ))}
+                </select>
                 {errors.lead_id && (
                   <p className="text-red-500 text-sm">{errors.lead_id.message}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="user_id">User ID</Label>
-                <Input id="user_id" {...register("user_id")} />
-                {errors.user_id && (
-                  <p className="text-red-500 text-sm">{errors.user_id.message}</p>
                 )}
               </div>
               <div>
