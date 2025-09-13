@@ -1,9 +1,10 @@
 import { supabase } from "./supabase";
-import type { Client, Document } from "@/types/entities";
+import type { Client, Document, Lot } from "@/types/entities";
 import type { CreateClient, UpdateClient, CreateDocument, UpdateDocument } from "@/types/validation";
 
 const CLIENTS_TABLE = "clients";
 const DOCUMENTS_TABLE = "documents";
+const LOTS_TABLE = "lots";
 
 // Client CRUD operations
 export async function listClients(): Promise<Client[]> {
@@ -117,4 +118,15 @@ export async function createClientLegacy(params: {
 }): Promise<string> {
   const client = await createClient(params);
   return client.id;
+}
+
+export async function listLotsByClient(clientId: string): Promise<Lot[]> {
+    const { data, error } = await supabase
+        .from(LOTS_TABLE)
+        .select("*")
+        .or(`sold_to.eq.${clientId},reserved_by.eq.${clientId}`);
+    if (error) {
+        throw error;
+    }
+    return data as Lot[];
 }

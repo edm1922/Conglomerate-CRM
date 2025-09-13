@@ -7,13 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listClients, createClient, updateClient, deleteClient, onClientsChange, listDocumentsByClient, insertDocumentRecord } from "@/services/clients";
-import { uploadClientDocument, createSignedUrl } from "@/services/storage";
+import { listClients, createClient, updateClient, deleteClient, onClientsChange, listDocumentsByClient, insertDocumentRecord, deleteDocument, updateDocument } from "@/services/clients";
+import { uploadClientDocument, createSignedUrl, deleteClientDocument } from "@/services/storage";
 import { CreateClientSchema, UpdateClientSchema, type CreateClient, type UpdateClient, CreateCommunicationSchema, type CreateCommunication } from "@/types/validation";
 import { Client as ClientEntity, Document as DocumentEntity, Communication as CommunicationEntity } from "@/types/entities";
 import { listCommunications, createCommunication } from "@/services/communications";
 import CommunicationList from "@/components/communications/CommunicationList";
 import CommunicationForm from "@/components/communications/CommunicationForm";
+import BookedLotsTab from "@/components/BookedLotsTab";
 import {
   Table,
   TableBody,
@@ -42,9 +43,11 @@ import {
   Download,
   Trash2,
   Edit,
+  CheckCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ClientLotBookingDialog from "@/components/ClientLotBookingDialog";
 
 
 export default function Clients() {
@@ -57,6 +60,7 @@ export default function Clients() {
   const [editingClient, setEditingClient] = useState<ClientEntity | null>(null);
   const [selectedClient, setSelectedClient] = useState<ClientEntity | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
 
   const { data: clientsData = [], isLoading: clientsLoading, isError, error } = useQuery({
     queryKey: ["clients"],
@@ -323,8 +327,14 @@ export default function Clients() {
                 <CommunicationsTab clientId={selectedClient.id} />
               </TabsContent>
               <TabsContent value="lots" className="space-y-4">
-                <h3 className="font-semibold">Booked Properties</h3>
-                <p className="text-muted-foreground">No booked lots yet.</p>
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold">Booked Properties</h3>
+                  <Button size="sm" className="gap-2" onClick={() => setBookingDialogOpen(true)}>
+                    <Plus className="w-4 h-4" />
+                    Book a Lot
+                  </Button>
+                </div>
+                <BookedLotsTab clientId={selectedClient.id} />
               </TabsContent>
               <TabsContent value="payments" className="space-y-4">
                 <h3 className="font-semibold">Payment History</h3>
@@ -334,15 +344,50 @@ export default function Clients() {
           </DialogContent>
         </Dialog>
       )}
+
+      {bookingDialogOpen && selectedClient && (
+        <ClientLotBookingDialog client={selectedClient} onBooking={() => setBookingDialogOpen(false)} />
+      )}
     </div>
   );
 }
 
 function DocumentsTable({ clientId }: { clientId: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["documents", clientId],
     queryFn: () => listDocumentsByClient(clientId),
   });
+
+  const deleteDocumentMutation = useMutation(
+    async (doc: DocumentEntity) => {
+      await deleteClientDocument(doc.file_path);
+      await deleteDocument(doc.id);
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["documents", clientId] });
+        toast({ title: "Success", description: "Document deleted successfully." });
+      },
+      onError: (error: Error) => {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      },
+    }
+  );
+  const verifyDocumentMutation = useMutation(
+    (doc: DocumentEntity) => updateDocument(doc.id, { status: "verified" }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["documents", clientId] });
+        toast({ title: "Success", description: "Document verified successfully." });
+      },
+      onError: (error: Error) => {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      },
+    }
+  );
+
 
   if (isLoading) return <p>Loading documents...</p>;
 
@@ -362,9 +407,17 @@ function DocumentsTable({ clientId }: { clientId: string }) {
             <TableCell>{doc.file_name}</TableCell>
             <TableCell>{new Date(doc.uploaded_at).toLocaleDateString()}</TableCell>
             <TableCell><Badge variant={doc.status === "verified" ? "success" : "warning"}>{doc.status}</Badge></TableCell>
-            <TableCell>
+            <TableCell className="space-x-2">
               <Button variant="ghost" size="sm" onClick={async () => { window.open(await createSignedUrl(doc.file_path), "_blank"); }}>
                 <Download className="w-4 h-4" />
+              </Button>
+              {doc.status !== "verified" && (
+                <Button variant="ghost" size="sm" onClick={() => verifyDocumentMutation.mutate(doc)}>
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => deleteDocumentMutation.mutate(doc)}>
+                <Trash2 className="w-4 h-4 text-red-500" />
               </Button>
             </TableCell>
           </TableRow>
@@ -379,7 +432,7 @@ function CommunicationsTab({ clientId }: { clientId: string }) {
   const { toast } = useToast();
   const { data: communications = [], isLoading } = useQuery({
     queryKey: ["communications", clientId],
-    queryFn: () => listCommunications(clientId),
+    fn: () => listCommunications(clientId),
   });
 
   const createCommunicationMutation = useMutation({

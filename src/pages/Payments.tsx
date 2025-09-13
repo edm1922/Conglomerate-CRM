@@ -10,6 +10,7 @@ import { listPayments, createPayment, updatePayment, deletePayment, onPaymentsCh
 import { listClients } from "@/services/clients";
 import { CreatePaymentSchema, type CreatePayment, type UpdatePayment } from "@/types/validation";
 import { Payment as PaymentEntity, Client as ClientEntity } from "@/types/entities";
+import Icon from "@/components/Icon";
 import {
   Table,
   TableBody,
@@ -34,17 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Plus,
-  Receipt,
-  Download,
-  Search,
-  Filter,
-  CreditCard,
-  Smartphone,
-  Banknote,
-  Trash2,
-} from "lucide-react";
+import { Plus, Receipt, Download, Search, Filter, Trash2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Payments() {
@@ -107,10 +98,10 @@ export default function Payments() {
   };
 
   const paymentMethods = [
-    { id: "cash", name: "Cash", icon: Banknote },
-    { id: "bank-transfer", name: "Bank Transfer", icon: CreditCard },
-    { id: "gcash", name: "GCash", icon: Smartphone },
-    { id: "cheque", name: "Cheque", icon: Receipt },
+    { id: "cash", name: "Cash", icon: "Banknote" },
+    { id: "bank-transfer", name: "Bank Transfer", icon: "CreditCard" },
+    { id: "gcash", name: "GCash", icon: "Smartphone" },
+    { id: "cheque", name: "Cheque", icon: "Receipt" },
   ];
 
   const filteredPayments = useMemo(() => {
@@ -146,18 +137,6 @@ export default function Payments() {
         {status}
       </Badge>
     );
-  };
-
-  const getMethodIcon = (method: string) => {
-    const icons = {
-      Cash: Banknote,
-      "Bank Transfer": CreditCard,
-      GCash: Smartphone,
-      Cheque: Receipt,
-    } as const;
-
-    const Icon = icons[method as keyof typeof icons] || Banknote;
-    return <Icon className="w-4 h-4" />;
   };
 
   const todayStats = {
@@ -274,9 +253,9 @@ export default function Payments() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Today's Collection</p><p className="text-2xl font-bold">{formatCurrency(todayStats.totalCollected)}</p></div><span className="text-2xl font-bold text-success">₱</span></CardContent></Card>
-        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Transactions</p><p className="text-2xl font-bold">{todayStats.totalTransactions}</p></div><Receipt className="w-8 h-8 text-primary" /></CardContent></Card>
-        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Cash Payments</p><p className="text-2xl font-bold">{formatCurrency(todayStats.cashPayments)}</p></div><Banknote className="w-8 h-8 text-warning" /></CardContent></Card>
-        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Digital Payments</p><p className="text-2xl font-bold">{formatCurrency(todayStats.digitalPayments)}</p></div><CreditCard className="w-8 h-8 text-accent" /></CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Transactions</p><p className="text-2xl font-bold">{todayStats.totalTransactions}</p></div><Icon name="Receipt" className="w-8 h-8 text-primary" /></CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Cash Payments</p><p className="text-2xl font-bold">{formatCurrency(todayStats.cashPayments)}</p></div><Icon name="Banknote" className="w-8 h-8 text-warning" /></CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Digital Payments</p><p className="text-2xl font-bold">{formatCurrency(todayStats.digitalPayments)}</p></div><Icon name="CreditCard" className="w-8 h-8 text-accent" /></CardContent></Card>
       </div>
 
       <Card>
@@ -301,10 +280,9 @@ export default function Payments() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Methods</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="bank-transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="gcash">GCash</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
+                  {paymentMethods.map(method => (
+                    <SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -337,13 +315,13 @@ export default function Payments() {
                   <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>{(payment.clients as ClientEntity)?.name || "-"}</TableCell>
                   <TableCell className="font-semibold">{formatCurrency(payment.amount)}</TableCell>
-                  <TableCell><div className="flex items-center gap-2">{getMethodIcon(payment.payment_method)}<span>{payment.payment_method}</span></div></TableCell>
+                  <TableCell><div className="flex items-center gap-2"><Icon name={paymentMethods.find(p => p.name === payment.payment_method)?.icon || "Banknote"} /><span>{payment.payment_method}</span></div></TableCell>
                   <TableCell>{payment.payment_type}</TableCell>
                   <TableCell>{getStatusBadge(payment.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button variant="ghost" size="sm"><Download className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm"><Receipt className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm"><Printer className="w-4 h-4" /></Button>
                       <Button variant="destructive" size="sm" onClick={() => { if (confirm("Are you sure?")) deleteMutation.mutate(payment.id); }}><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </TableCell>

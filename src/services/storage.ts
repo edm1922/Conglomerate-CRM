@@ -232,6 +232,12 @@ export async function listClientDocuments(clientId: string) {
   return data;
 }
 
+export async function deleteClientDocument(filePath: string): Promise<void> {
+  const { error } = await supabase.storage.from(BUCKET).remove([filePath]);
+  if (error) throw error;
+}
+
+
 export function getPublicUrl(filePath: string) {
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
   return data.publicUrl;

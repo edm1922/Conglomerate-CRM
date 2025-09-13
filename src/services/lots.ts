@@ -80,7 +80,7 @@ export async function sellLot(id: string, clientId: string): Promise<Lot> {
   return data as Lot;
 }
 
-export async function getAvailableLots(): Promise<Lot[]> {
+export async function listAvailableLots(): Promise<Lot[]> {
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
@@ -102,4 +102,8 @@ export function onLotsChange(callback: (payload: any) => void) {
       }
     )
     .subscribe();
+}
+
+export async function bookLot({ lotId, clientId }: { lotId: string; clientId: string; }): Promise<Lot> {
+    return sellLot(lotId, clientId);
 }

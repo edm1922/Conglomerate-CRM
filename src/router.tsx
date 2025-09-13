@@ -17,6 +17,8 @@ import Login from "./pages/Login";
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isLoading } = useSessionContext();
   const user = useUser();
+  
+  console.log('ProtectedRoute:', { isLoading, user: user?.id });
 
   if (isLoading) {
     return <LoadingScreen />;

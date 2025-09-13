@@ -12,6 +12,7 @@ import { listClients } from "@/services/clients";
 import { CreateAppointmentSchema, type CreateAppointment, type UpdateAppointment } from "@/types/validation";
 import { CreateTaskSchema, type CreateTask, type UpdateTask } from "@/types/validation";
 import { Appointment as AppointmentEntity, Task as TaskEntity, Client as ClientEntity, Profile as ProfileEntity } from "@/types/entities";
+import GanttChart from "@/components/GanttChart";
 import {
   Table,
   TableBody,
@@ -292,6 +293,15 @@ export default function Calendar() {
           </Dialog>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tasks and Appointments Gantt Chart</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <GanttChart />
+        </CardContent>
+      </Card>
 
       <Card><CardContent className="p-4"><div className="flex items-center gap-4"><CalendarIcon className="w-5 h-5 text-primary" /><Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-auto" /><span className="text-sm text-muted-foreground">Showing schedule for selected date</span></div></CardContent></Card>
 

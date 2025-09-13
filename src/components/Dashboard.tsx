@@ -21,7 +21,13 @@ import {
 } from "lucide-react";
 
 export function Dashboard() {
-  useRealtimeStore();
+  console.log('Dashboard component rendering...');
+  
+  try {
+    useRealtimeStore();
+  } catch (error) {
+    console.error('Error in useRealtimeStore:', error);
+  }
   
   // Fetch real data from database
   const { data: leads = [] } = useQuery({

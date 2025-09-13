@@ -9,6 +9,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listLots, createLot, updateLot, deleteLot, onLotsChange } from "@/services/lots";
 import { CreateLotSchema, UpdateLotSchema, type CreateLot, type UpdateLot } from "@/types/validation";
 import { Lot as LotEntity } from "@/types/entities";
+import ClientLotBookingDialog from "@/components/ClientLotBookingDialog";
+import LotMap from "@/components/LotMap";
+import LotComparison from "@/components/LotComparison";
+import PriceHistory from "@/components/PriceHistory";
 import {
   Select,
   SelectContent,
@@ -34,6 +38,8 @@ import {
   Plus,
   Edit,
   Trash2,
+  GitCompare,
+  History
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -118,8 +124,11 @@ export default function Inventory() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingLot, setEditingLot] = useState<LotEntity | null>(null);
+  const [bookingLot, setBookingLot] = useState<LotEntity | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [comparisonList, setComparisonList] = useState<LotEntity[]>([]);
+  const [priceHistoryLot, setPriceHistoryLot] = useState<LotEntity | null>(null);
 
   const { data: lotsData = [], isLoading: lotsLoading, isError, error } = useQuery({
     queryKey: ["lots"],
@@ -183,6 +192,18 @@ export default function Inventory() {
   const handleUpdateSubmit = (values: UpdateLot) => {
     if (editingLot) {
       updateMutation.mutate({ id: editingLot.id, data: values });
+    }
+  };
+
+  const handleBookingSuccess = () => {
+    setBookingLot(null);
+  };
+
+  const toggleCompare = (lot: LotEntity) => {
+    if (comparisonList.find(l => l.id === lot.id)) {
+      setComparisonList(comparisonList.filter(l => l.id !== lot.id));
+    } else {
+      setComparisonList([...comparisonList, lot]);
     }
   };
 
@@ -299,6 +320,8 @@ export default function Inventory() {
         </Dialog>
       </div>
 
+      <LotMap />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold">{stats.total}</div><p className="text-sm text-muted-foreground">Total Lots</p></CardContent></Card>
         <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-success">{stats.available}</div><p className="text-sm text-muted-foreground">Available</p></CardContent></Card>
@@ -357,9 +380,26 @@ export default function Inventory() {
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
                 </Button>
+                {lot.status === "available" && (
+                  <Button variant="default" size="sm" className="flex-1" onClick={() => setBookingLot(lot)}>
+                    Book
+                  </Button>
+                )}
                 <Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteMutation.mutate(lot.id); }}>
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete
+                </Button>
+                <Button
+                  variant={comparisonList.find(l => l.id === lot.id) ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => toggleCompare(lot)}
+                >
+                  <GitCompare className="w-4 h-4 mr-2" />
+                  Compare
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setPriceHistoryLot(lot)}>
+                  <History className="w-4 h-4 mr-2" />
+                  History
                 </Button>
               </div>
             </CardContent>
@@ -367,12 +407,34 @@ export default function Inventory() {
         ))}
       </div>
 
+      {comparisonList.length > 0 && (
+        <LotComparison
+          lots={comparisonList}
+          onClose={() => setComparisonList([])}
+        />
+      )}
+
+      {priceHistoryLot && (
+        <Dialog open={priceHistoryLot !== null} onOpenChange={() => setPriceHistoryLot(null)}>
+          <DialogContent>
+            <PriceHistory lot={priceHistoryLot} />
+          </DialogContent>
+        </Dialog>
+      )}
+
       {editingLot && (
         <EditLotDialog
             lot={editingLot}
             open={editDialogOpen}
             onOpenChange={setEditDialogOpen}
             onUpdate={handleUpdateSubmit}
+        />
+      )}
+
+      {bookingLot && (
+        <ClientLotBookingDialog
+          lot={bookingLot}
+          onBooking={handleBookingSuccess}
         />
       )}
     </div>
