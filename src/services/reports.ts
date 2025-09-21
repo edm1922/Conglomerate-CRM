@@ -13,6 +13,23 @@ export interface LeadSourceReportData {
   leadsBySource: Record<string, number>;
 }
 
+export interface PaymentAnalyticsReportData {
+  totalPayments: number;
+  numberOfPayments: number;
+  paymentsByMethod: Record<string, number>;
+  averagePaymentAmount: number;
+}
+
+export interface FinancialSummaryReportData {
+  totalRevenue: number;
+  numberOfTransactions: number;
+}
+
+export interface CommissionReportData {
+  totalCommission: number;
+  commissionByAgent: Record<string, number>;
+}
+
 export async function generateSalesReport(startDate: string, endDate: string): Promise<SalesReportData> {
   const { data: payments, error } = await supabase
     .from('payments')
@@ -22,7 +39,7 @@ export async function generateSalesReport(startDate: string, endDate: string): P
     `)
     .gte('created_at', startDate)
     .lte('created_at', endDate)
-    .eq('status', 'completed');
+    .eq('status', 'confirmed');
 
   if (error) {
     throw new Error(`Failed to fetch sales data: ${error.message}`);
@@ -63,4 +80,75 @@ export async function generateLeadSourceReport(startDate: string, endDate: strin
   }, {} as Record<string, number>);
 
   return { totalLeads, leadsBySource };
+}
+
+export async function generatePaymentAnalyticsReport(startDate: string, endDate: string): Promise<PaymentAnalyticsReportData> {
+  const { data: payments, error } = await supabase
+    .from('payments')
+    .select('amount, payment_method')
+    .gte('created_at', startDate)
+    .lte('created_at', endDate)
+    .eq('status', 'confirmed');
+
+  if (error) {
+    throw new Error(`Failed to fetch payment data: ${error.message}`);
+  }
+
+  const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0);
+  const numberOfPayments = payments.length;
+  const averagePaymentAmount = numberOfPayments > 0 ? totalPayments / numberOfPayments : 0;
+
+  const paymentsByMethod = payments.reduce((acc, p) => {
+    const method = p.payment_method || 'Unknown';
+    acc[method] = (acc[method] || 0) + p.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return { totalPayments, numberOfPayments, paymentsByMethod, averagePaymentAmount };
+}
+
+export async function generateFinancialSummaryReport(startDate: string, endDate: string): Promise<FinancialSummaryReportData> {
+  const { data: payments, error } = await supabase
+    .from('payments')
+    .select('amount')
+    .gte('created_at', startDate)
+    .lte('created_at', endDate)
+    .eq('status', 'confirmed');
+
+  if (error) {
+    throw new Error(`Failed to fetch payment data: ${error.message}`);
+  }
+
+  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+  const numberOfTransactions = payments.length;
+
+  return { totalRevenue, numberOfTransactions };
+}
+
+export async function generateCommissionReport(startDate: string, endDate: string): Promise<CommissionReportData> {
+  const { data: payments, error } = await supabase
+    .from('payments')
+    .select(`
+      amount,
+      commission,
+      client:clients ( lead:leads ( agent:profiles ( full_name ) ) )
+    `)
+    .gte('created_at', startDate)
+    .lte('created_at', endDate)
+    .eq('status', 'confirmed')
+    .not('commission', 'is', null);
+
+  if (error) {
+    throw new Error(`Failed to fetch commission data: ${error.message}`);
+  }
+
+  const totalCommission = payments.reduce((sum, p) => sum + (p.commission || 0), 0);
+
+  const commissionByAgent = payments.reduce((acc, p) => {
+    const agentName = (p.client as any)?.lead?.agent?.full_name || 'Unknown Agent';
+    acc[agentName] = (acc[agentName] || 0) + (p.commission || 0);
+    return acc;
+  }, {} as Record<string, number>);
+
+  return { totalCommission, commissionByAgent };
 }

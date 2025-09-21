@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -12,11 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { signOut, getSession, onAuthStateChange } from "@/services/auth";
 import {
-  Plus,
-  Bell,
   User,
   Settings,
   LogOut,
@@ -24,20 +21,13 @@ import {
   Calendar,
 } from "lucide-react";
 
-export function TopNavbar() {
+export function TopNavbar({ children }: { children?: ReactNode }) {
   const { 
-    leads,
-    payments,
     setOpenDialogOnLoad 
   } = useAppStore();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
-
-  const notifications = [
-    ...(leads.slice(0,2).map(l => ({ type: 'lead', message: `New lead: ${l.name}` }))),
-    ...(payments.slice(0,1).map(p => ({ type: 'payment', message: `Payment from ${(p.clients as any)?.name}` })))
-  ];
 
   useEffect(() => {
     getSession().then((session) => {
@@ -93,32 +83,7 @@ export function TopNavbar() {
           </Button>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="w-5 h-5" />
-              {notifications.length > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 w-5 h-5 text-xs flex items-center justify-center p-0"
-                >
-                  {notifications.length}
-                </Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <div className="p-2">
-              <h3 className="font-semibold mb-2">Recent Notifications</h3>
-              <div className="space-y-2">
-                {notifications.map((n, i) => (
-                  <div key={i} className="p-2 bg-muted rounded text-sm">{n.message}</div>
-                ))}
-                 {notifications.length === 0 && <p className="text-sm text-muted-foreground text-center">No new notifications</p>}
-              </div>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {children}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

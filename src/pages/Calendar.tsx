@@ -6,11 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listAppointments, createAppointment, updateAppointment, deleteAppointment } from "@/services/appointments";
+import { listAppointments, createAppointment, updateAppointment, deleteAppointment, getConflictingAppointments } from "@/services/appointments";
 import { listTasks, createTask, updateTask, deleteTask } from "@/services/tasks";
 import { listClients } from "@/services/clients";
-import { CreateAppointmentSchema, type CreateAppointment, type UpdateAppointment } from "@/types/validation";
+import { createReminder } from "@/services/reminders";
+import { listAppointmentTemplates } from "@/services/appointmentTemplates";
+import { CreateAppointmentSchema, type CreateAppointment, type UpdateAppointment, type AppointmentTemplate } from "@/types/validation";
 import { CreateTaskSchema, type CreateTask, type UpdateTask } from "@/types/validation";
+import { CreateReminderSchema, type CreateReminder } from "@/types/validation";
 import { Appointment as AppointmentEntity, Task as TaskEntity, Client as ClientEntity, Profile as ProfileEntity } from "@/types/entities";
 import GanttChart from "@/components/GanttChart";
 import {
@@ -48,6 +51,7 @@ import {
   Building,
   Trash2,
   Edit,
+  Bell,
 } from "lucide-react";
 
 export default function Calendar() {
@@ -55,7 +59,10 @@ export default function Calendar() {
 
   const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentEntity | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [conflictingAppointments, setConflictingAppointments] = useState<AppointmentEntity[]>([]);
 
   const { data: appointmentsData = [], isLoading: appointmentsLoading } = useQuery({
     queryKey: ["appointments"],
@@ -72,12 +79,34 @@ export default function Calendar() {
     queryFn: listClients,
   });
 
-  const { register: registerAppointment, handleSubmit: handleAppointmentSubmit, reset: resetAppointment, setValue: setAppointmentValue, formState: { errors: appointmentErrors } } = useForm<CreateAppointment>({
+  const { data: appointmentTemplatesData = [] } = useQuery({
+    queryKey: ["appointmentTemplates"],
+    queryFn: listAppointmentTemplates,
+  });
+
+  const { register: registerAppointment, handleSubmit: handleAppointmentSubmit, reset: resetAppointment, setValue: setAppointmentValue, watch, formState: { errors: appointmentErrors } } = useForm<CreateAppointment>({
     resolver: zodResolver(CreateAppointmentSchema),
   });
 
+  const appointmentValues = watch();
+
+  useEffect(() => {
+    const checkConflicts = async () => {
+      if (appointmentValues.scheduled_date && appointmentValues.scheduled_time && appointmentValues.duration) {
+        const conflicts = await getConflictingAppointments(appointmentValues.scheduled_date, appointmentValues.scheduled_time, appointmentValues.duration);
+        setConflictingAppointments(conflicts);
+      }
+    };
+    checkConflicts();
+  }, [appointmentValues.scheduled_date, appointmentValues.scheduled_time, appointmentValues.duration]);
+
+
   const { register: registerTask, handleSubmit: handleTaskSubmit, reset: resetTask, setValue: setTaskValue, formState: { errors: taskErrors } } = useForm<CreateTask>({
     resolver: zodResolver(CreateTaskSchema),
+  });
+
+  const { register: registerReminder, handleSubmit: handleReminderSubmit, reset: resetReminder, formState: { errors: reminderErrors } } = useForm<CreateReminder>({
+    resolver: zodResolver(CreateReminderSchema),
   });
 
   const createAppointmentMutation = useMutation({
@@ -95,6 +124,15 @@ export default function Calendar() {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       resetTask();
       setTaskDialogOpen(false);
+    },
+  });
+
+  const createReminderMutation = useMutation({
+    mutationFn: createReminder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      resetReminder();
+      setReminderDialogOpen(false);
     },
   });
 
@@ -118,6 +156,23 @@ export default function Calendar() {
 
   const handleCreateTaskSubmit = (values: CreateTask) => {
     createTaskMutation.mutate(values);
+  };
+
+  const handleCreateReminderSubmit = (values: CreateReminder) => {
+    if (selectedAppointment) {
+      createReminderMutation.mutate({ ...values, appointment_id: selectedAppointment.id });
+    }
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    const template = appointmentTemplatesData.find((t: AppointmentTemplate) => t.id === templateId);
+    if (template) {
+      setAppointmentValue("title", template.title);
+      setAppointmentValue("type", template.type);
+      setAppointmentValue("duration", template.duration);
+      setAppointmentValue("location", template.location);
+      setAppointmentValue("notes", template.notes);
+    }
   };
 
   const todayAppointments = useMemo(() => {
@@ -243,6 +298,15 @@ export default function Calendar() {
               <DialogHeader><DialogTitle>Schedule New Appointment</DialogTitle></DialogHeader>
               <form onSubmit={handleAppointmentSubmit(handleCreateAppointmentSubmit)} className="space-y-4">
                 <div className="space-y-2">
+                  <Label htmlFor="aptTemplate">Template</Label>
+                  <Select onValueChange={handleTemplateSelect}>
+                    <SelectTrigger><SelectValue placeholder="Select a template" /></SelectTrigger>
+                    <SelectContent>
+                      {(appointmentTemplatesData || []).map((template: AppointmentTemplate) => <SelectItem key={template.id} value={template.id}>{template.template_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="aptClient">Client</Label>
                   <Select onValueChange={(value) => setAppointmentValue("client_id", value)}>
                     <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
@@ -277,6 +341,11 @@ export default function Calendar() {
                     {appointmentErrors.scheduled_time && <p className="text-sm text-red-500">{appointmentErrors.scheduled_time.message}</p>}
                   </div>
                 </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="aptDuration">Duration (minutes)</Label>
+                    <Input id="aptDuration" type="number" {...registerAppointment("duration")} />
+                    {appointmentErrors.duration && <p className="text-sm text-red-500">{appointmentErrors.duration.message}</p>}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="aptLocation">Location</Label>
                   <Input id="aptLocation" {...registerAppointment("location")} />
@@ -285,8 +354,32 @@ export default function Calendar() {
                   <Label htmlFor="aptNotes">Notes</Label>
                   <Textarea id="aptNotes" {...registerAppointment("notes")} />
                 </div>
-                <Button className="w-full" type="submit" disabled={createAppointmentMutation.isPending}>
+                {conflictingAppointments.length > 0 && (
+                    <div className="text-sm text-yellow-500">
+                        Warning: This appointment conflicts with {conflictingAppointments.length} other appointment(s).
+                    </div>
+                )}
+                <Button className="w-full" type="submit" disabled={createAppointmentMutation.isPending || conflictingAppointments.length > 0}>
                   {createAppointmentMutation.isPending ? "Scheduling..." : "Schedule Appointment"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={reminderDialogOpen} onOpenChange={setReminderDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader><DialogTitle>Set Reminder</DialogTitle></DialogHeader>
+              <form onSubmit={handleReminderSubmit(handleCreateReminderSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reminderDate">Reminder Date</Label>
+                  <Input id="reminderDate" type="date" {...registerReminder("reminder_date")} />
+                  {reminderErrors.reminder_date && <p className="text-sm text-red-500">{reminderErrors.reminder_date.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reminderNotes">Notes</Label>
+                  <Textarea id="reminderNotes" {...registerReminder("notes")} />
+                </div>
+                <Button className="w-full" type="submit" disabled={createReminderMutation.isPending}>
+                  {createReminderMutation.isPending ? "Setting Reminder..." : "Set Reminder"}
                 </Button>
               </form>
             </DialogContent>
@@ -308,7 +401,7 @@ export default function Calendar() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><CalendarIcon className="w-5 h-5" />Appointments ({todayAppointments.length})</CardTitle></CardHeader>
-          <CardContent><div className="space-y-4">{todayAppointments.length === 0 ? <p className="text-muted-foreground text-center py-4">No appointments scheduled</p> : todayAppointments.map((appointment) => (<div key={appointment.id} className="border border-border rounded-lg p-4 space-y-3"><div className="flex items-center justify-between"><h4 className="font-medium">{appointment.title}</h4>{getStatusBadge(appointment.status)}</div><div className="space-y-2 text-sm"><div className="flex items-center gap-2"><User className="w-4 h-4 text-muted-foreground" /><span>{(appointment.clients as ClientEntity)?.name || "-"}</span></div><div className="flex items-center gap-2"><Clock className="w-4 h-4 text-muted-foreground" /><span>{appointment.scheduled_time} ({appointment.duration}min)</span></div><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-muted-foreground" /><span>{appointment.location}</span></div></div>{appointment.notes && (<p className="text-sm text-muted-foreground bg-muted p-2 rounded">{appointment.notes}</p>)}<div className="flex gap-2"><Button variant="outline" size="sm" className="flex-1"><Edit className="w-4 h-4 mr-2"/>Edit</Button><Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteAppointmentMutation.mutate(appointment.id); }}><Trash2 className="w-4 h-4 mr-2"/>Delete</Button></div></div>))}</div></CardContent>
+          <CardContent><div className="space-y-4">{todayAppointments.length === 0 ? <p className="text-muted-foreground text-center py-4">No appointments scheduled</p> : todayAppointments.map((appointment) => (<div key={appointment.id} className="border border-border rounded-lg p-4 space-y-3"><div className="flex items-center justify-between"><h4 className="font-medium">{appointment.title}</h4>{getStatusBadge(appointment.status)}</div><div className="space-y-2 text-sm"><div className="flex items-center gap-2"><User className="w-4 h-4 text-muted-foreground" /><span>{(appointment.clients as ClientEntity)?.name || "-"}</span></div><div className="flex items-center gap-2"><Clock className="w-4 h-4 text-muted-foreground" /><span>{appointment.scheduled_time} ({appointment.duration}min)</span></div><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-muted-foreground" /><span>{appointment.location}</span></div></div>{appointment.notes && (<p className="text-sm text-muted-foreground bg-muted p-2 rounded">{appointment.notes}</p>)}<div className="flex gap-2"><Button variant="outline" size="sm" className="flex-1"><Edit className="w-4 h-4 mr-2"/>Edit</Button><Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedAppointment(appointment); setReminderDialogOpen(true);}}><Bell className="w-4 h-4 mr-2"/>Set Reminder</Button><Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteAppointmentMutation.mutate(appointment.id); }}><Trash2 className="w-4 h-4 mr-2"/>Delete</Button></div></div>))}</div></CardContent>
         </Card>
 
         <Card>

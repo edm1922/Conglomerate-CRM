@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { Profile } from "@/types/entities";
 
 export function onAuthStateChange(callback: (session: any) => void) {
   const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -27,4 +28,11 @@ export async function getSession() {
   return data.session;
 }
 
-
+export async function listProfiles(): Promise<Profile[]> {
+  const { data, error } = await supabase.from("profiles").select("*");
+  if (error) {
+    console.error("Error fetching profiles:", error);
+    throw error;
+  }
+  return data as Profile[];
+}

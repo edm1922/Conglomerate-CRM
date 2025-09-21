@@ -15,6 +15,8 @@ import { listCommunications, createCommunication } from "@/services/communicatio
 import CommunicationList from "@/components/communications/CommunicationList";
 import CommunicationForm from "@/components/communications/CommunicationForm";
 import BookedLotsTab from "@/components/BookedLotsTab";
+import { sendEmail } from "@/services/email";
+import { sendSms } from "@/services/sms";
 import {
   Table,
   TableBody,
@@ -43,7 +45,9 @@ import {
   Download,
   Trash2,
   Edit,
-  CheckCircle
+  CheckCircle,
+  Mail,
+  MessageSquare
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,6 +65,8 @@ export default function Clients() {
   const [selectedClient, setSelectedClient] = useState<ClientEntity | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [smsDialogOpen, setSmsDialogOpen] = useState(false);
 
   const { data: clientsData = [], isLoading: clientsLoading, isError, error } = useQuery({
     queryKey: ["clients"],
@@ -115,6 +121,28 @@ export default function Clients() {
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
+  });
+  
+  const emailMutation = useMutation({
+    mutationFn: (values: { to: string; subject: string; body: string }) => sendEmail(values.to, values.subject, values.body),
+    onSuccess: () => {
+        toast({ title: "Email Sent", description: "The email has been sent successfully." });
+        setEmailDialogOpen(false);
+    },
+    onError: (error: Error) => {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+});
+
+  const smsMutation = useMutation({
+    mutationFn: (values: { to: string; body: string }) => sendSms(values.to, values.body),
+    onSuccess: () => {
+        toast({ title: "SMS Sent", description: "The SMS has been sent successfully." });
+        setSmsDialogOpen(false);
+    },
+    onError: (error: Error) => {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   const handleCreateSubmit = (values: CreateClient) => {
@@ -290,10 +318,20 @@ export default function Clients() {
         <Dialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-3">
-                <UserCircle className="w-6 h-6" />
-                {selectedClient.name}
-              </DialogTitle>
+                <div className="flex justify-between items-start">
+                    <DialogTitle className="flex items-center gap-3">
+                        <UserCircle className="w-6 h-6" />
+                        {selectedClient.name}
+                    </DialogTitle>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="icon" onClick={() => setEmailDialogOpen(true)}>
+                            <Mail className="w-4 h-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => setSmsDialogOpen(true)}>
+                            <MessageSquare className="w-4 h-4" />
+                        </Button>
+                    </div>
+                </div>
             </DialogHeader>
             <Tabs defaultValue="profile" className="w-full">
               <TabsList className="grid w-full grid-cols-5">
@@ -345,6 +383,26 @@ export default function Clients() {
         </Dialog>
       )}
 
+      {emailDialogOpen && selectedClient && (
+        <EmailDialog
+            client={selectedClient}
+            open={emailDialogOpen}
+            onOpenChange={setEmailDialogOpen}
+            onSubmit={(values) => emailMutation.mutate(values)}
+            isSending={emailMutation.isPending}
+        />
+      )}
+
+      {smsDialogOpen && selectedClient && (
+        <SmsDialog
+            client={selectedClient}
+            open={smsDialogOpen}
+            onOpenChange={setSmsDialogOpen}
+            onSubmit={(values) => smsMutation.mutate(values)}
+            isSending={smsMutation.isPending}
+        />
+      )}
+
       {bookingDialogOpen && selectedClient && (
         <ClientLotBookingDialog client={selectedClient} onBooking={() => setBookingDialogOpen(false)} />
       )}
@@ -360,33 +418,29 @@ function DocumentsTable({ clientId }: { clientId: string }) {
     queryFn: () => listDocumentsByClient(clientId),
   });
 
-  const deleteDocumentMutation = useMutation(
-    async (doc: DocumentEntity) => {
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (doc: DocumentEntity) => {
       await deleteClientDocument(doc.file_path);
       await deleteDocument(doc.id);
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["documents", clientId] });
-        toast({ title: "Success", description: "Document deleted successfully." });
-      },
-      onError: (error: Error) => {
-        toast({ title: "Error", description: error.message, variant: "destructive" });
-      },
-    }
-  );
-  const verifyDocumentMutation = useMutation(
-    (doc: DocumentEntity) => updateDocument(doc.id, { status: "verified" }),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["documents", clientId] });
-        toast({ title: "Success", description: "Document verified successfully." });
-      },
-      onError: (error: Error) => {
-        toast({ title: "Error", description: error.message, variant: "destructive" });
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents", clientId] });
+      toast({ title: "Success", description: "Document deleted successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  const verifyDocumentMutation = useMutation({
+    mutationFn: (doc: DocumentEntity) => updateDocument(doc.id, { status: "verified" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents", clientId] });
+      toast({ title: "Success", description: "Document verified successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
 
   if (isLoading) return <p>Loading documents...</p>;
@@ -408,7 +462,7 @@ function DocumentsTable({ clientId }: { clientId: string }) {
             <TableCell>{new Date(doc.uploaded_at).toLocaleDateString()}</TableCell>
             <TableCell><Badge variant={doc.status === "verified" ? "success" : "warning"}>{doc.status}</Badge></TableCell>
             <TableCell className="space-x-2">
-              <Button variant="ghost" size="sm" onClick={async () => { window.open(await createSignedUrl(doc.file_path), "_blank"); }}>
+              <Button variant="ghost" size="sm" onClick={async () => { window.open(await createSignedurl(doc.file_path), "_blank"); }}>
                 <Download className="w-4 h-4" />
               </Button>
               {doc.status !== "verified" && (
@@ -432,7 +486,7 @@ function CommunicationsTab({ clientId }: { clientId: string }) {
   const { toast } = useToast();
   const { data: communications = [], isLoading } = useQuery({
     queryKey: ["communications", clientId],
-    fn: () => listCommunications(clientId),
+    queryFn: () => listCommunications(clientId),
   });
 
   const createCommunicationMutation = useMutation({
@@ -458,4 +512,81 @@ function CommunicationsTab({ clientId }: { clientId: string }) {
       <CommunicationList communications={communications} />
     </div>
   );
+}
+
+function EmailDialog({ client, open, onOpenChange, onSubmit, isSending }: {
+    client: ClientEntity;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSubmit: (values: { to: string; subject: string; body: string }) => void;
+    isSending: boolean;
+}) {
+    const [subject, setSubject] = useState("");
+    const [body, setBody] = useState("");
+
+    const handleSubmit = () => {
+        if (client.email) {
+            onSubmit({ to: client.email, subject, body });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Send Email to {client.name}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="subject">Subject</Label>
+                        <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="body">Body</Label>
+                        <Textarea id="body" value={body} onChange={(e) => setBody(e.target.value)} rows={10} />
+                    </div>
+                    <Button onClick={handleSubmit} disabled={isSending || !client.email}>
+                        {isSending ? "Sending..." : "Send Email"}
+                    </Button>
+                    {!client.email && <p className="text-sm text-red-500">This client does not have an email address.</p>}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function SmsDialog({ client, open, onOpenChange, onSubmit, isSending }: {
+    client: ClientEntity;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSubmit: (values: { to: string; body: string }) => void;
+    isSending: boolean;
+}) {
+    const [body, setBody] = useState("");
+
+    const handleSubmit = () => {
+        if (client.phone) {
+            onSubmit({ to: client.phone, body });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Send SMS to {client.name}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="body">Message</Label>
+                        <Textarea id="body" value={body} onChange={(e) => setBody(e.target.value)} rows={5} />
+                    </div>
+                    <Button onClick={handleSubmit} disabled={isSending || !client.phone}>
+                        {isSending ? "Sending..." : "Send SMS"}
+                    </Button>
+                    {!client.phone && <p className="text-sm text-red-500">This client does not have a phone number.</p>}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
 }

@@ -94,9 +94,13 @@ create table if not exists public.payments (
   payment_type text not null,
   reference text,
   status text default 'pending',
+  parent_payment_id uuid references public.payments(id) on delete set null,
+  installment_number integer,
+  total_installments integer,
   notes text,
   created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  constraint installment_check check (installment_number is null or total_installments is null or installment_number <= total_installments)
 );
 
 -- Appointments
@@ -143,8 +147,9 @@ create table if not exists public.documents (
 -- Reminders
 create table if not exists public.reminders (
   id uuid primary key default gen_random_uuid(),
-  lead_id uuid references public.leads(id) on delete cascade,
+  lead_.id uuid references public.leads(id) on delete cascade,
   user_id uuid references public.profiles(id) on delete cascade,
+  payment_id uuid references public.payments(id) on delete cascade,
   reminder_date timestamptz not null,
   notes text,
   status text default 'pending', -- pending, completed
@@ -165,7 +170,7 @@ alter table public.documents enable row level security;
 alter table public.reminders enable row level security;
 
 -- Basic policies (adjust to your needs)
-create policy "view_own_profile" on public.profiles for select using (auth.uid() = id);
+create policy "view_own__profile" on public.profiles for select using (auth.uid() = id);
 create policy "update_own_profile" on public.profiles for update using (auth.uid() = id);
 
 create policy "leads_read_all" on public.leads for select using (auth.role() = 'authenticated');
@@ -177,9 +182,90 @@ create policy "communications_read_all" on public.communications for select usin
 create policy "communications_write" on public.communications for insert with check (auth.role() = 'authenticated');
 
 create policy "reminders_read_all" on public.reminders for select using (auth.role() = 'authenticated');
-create policy "reminders_write" on public.reminders for insert with check (auth.role() = 'authenticated');
+create policy "reminders_write" on public.reminders for insert with check (.auth.role() = 'authenticated');
 create policy "reminders_update" on public.reminders for update using (auth.role() = 'authenticated');
 create policy "reminders_delete" on public.reminders for delete using (auth.role() = 'authenticated');
 
 -- Storage bucket setup (run via SQL or the dashboard)
 -- insert into storage.buckets (id, name, public) values ('documents', 'documents', false) on conflict do nothing;
+
+-- Task Templates
+create table if not exists public.task_templates (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text,
+  priority text default 'medium',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Task Workflows
+create table if not exists public.task_workflows (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Task Workflow Steps
+create table if not exists public.task_workflow_steps (
+  id uuid primary key default gen_random_uuid(),
+  workflow_id uuid not null references public.task_workflows(id) on delete cascade,
+  template_id uuid not null references public.task_templates(id) on delete cascade,
+  step_order integer not null,
+  delay_after_step interval, -- e.g., '1 day', '3 hours'
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Enable RLS for the new tables
+alter table public.task_templates enable row level security;
+alter table public.task_workflows enable row level security;
+alter table public.task_workflow_steps enable row level security;
+
+-- Policies for the new tables (adjust as needed)
+create policy "task_templates_read_all" on public.task_templates for select using (auth.role() = 'authenticated');
+create policy "task_templates_write" on public.task_templates for insert with check (auth.role() = 'authenticated');
+create policy "task_templates_update" on public.task_templates for update using (auth.role() = 'authenticated');
+create policy "task_templates_delete" on public.task_templates for delete using (auth.role() = 'authenticated');
+
+create policy "task_workflows_read_all" on public.task_workflows for select using (auth.role() = 'authenticated');
+create policy "task_workflows_write" on public.task_workflows for insert with check (auth.role() = 'authenticated');
+create policy "task_workflows_update" on public.task_workflows for update using (auth.role() = 'authenticated');
+create policy "task_workflows_delete" on public.task_workflows for delete using (auth.role() = 'authenticated');
+
+create policy "task_workflow_steps_read_all" on public.task_workflow_steps for select using (auth.role() = 'authenticated');
+create policy "task_workflow_steps_write" on public.task_workflow_steps for insert with check (auth.role() = 'authenticated');
+create policy "task_workflow_steps_update" on public.task_workflow_steps for update using (auth.role() = 'authenticated');
+create policy "task_workflow_steps_delete" on public.task_workflow_steps for delete using (auth.role() = 'authenticated');
+
+create policy "lots_read_all" on public.lots for select using (auth.role() = 'authenticated');
+create policy "lots_write" on public.lots for insert with check (auth.role() = 'authenticated');
+create policy "lots_update" on public.lots for update using (auth.role() = 'authenticated');
+create policy "lots_delete" on public.lots for delete using (auth.role() = 'authenticated');
+
+create policy "clients_read_all" on public.clients for select using (auth.role() = 'authenticated');
+create policy "clients_write" on public.clients for insert with check (auth.role() = 'authenticated');
+create policy "clients_update" on public.clients for update using (auth.role() = 'authenticated');
+create policy "clients_delete" on public.clients for delete using (auth.role() = 'authenticated');
+
+create policy "payments_read_all" on public.payments for select using (auth.role() = 'authenticated');
+create policy "payments_write" on public.payments for insert with check (auth.role() = 'authenticated');
+create policy "payments_update" on public.payments for update using (auth.role() = 'authenticated');
+create policy "payments_delete" on public.payments for delete using (auth.role() = 'authenticated');
+
+create policy "appointments_read_all" on public.appointments for select using (auth.role() = 'authenticated');
+create policy "appointments_write" on public.appointments for insert with check (auth.role() = 'authenticated');
+create policy "appointments_update" on public.appointments for update using (auth.role() = 'authenticated');
+create policy "appointments_delete" on public.appointments for delete using (auth.role() = 'authenticated');
+
+create policy "tasks_read_all" on public.tasks for select using (auth.role() = 'authenticated');
+create policy "tasks_write" on public.tasks for insert with check (auth.role() = 'authenticated');
+create policy "tasks_update" on public.tasks for update using (auth.role() = 'authenticated');
+create policy "tasks_delete" on public.tasks for delete using (auth.role() = 'authenticated');
+
+create policy "documents_read_all" on public.documents for select using (auth.role() = 'authenticated');
+create policy "documents_write" on public.documents for insert with check (auth.role() = 'authenticated');
+create policy "documents_update" on public.documents for update using (auth.role() = 'authenticated');
+create policy "documents_delete" on public.documents for delete using (auth.role() = 'authenticated');

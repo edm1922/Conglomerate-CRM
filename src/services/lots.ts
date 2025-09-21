@@ -34,15 +34,13 @@ export async function createLot(input: CreateLot): Promise<Lot> {
   return data as Lot;
 }
 
-export async function updateLot(id: string, input: UpdateLot): Promise<Lot> {
-  const { data, error } = await supabase
+export async function updateLot(id: string, input: UpdateLot): Promise<void> {
+  const { error } = await supabase
     .from(TABLE)
     .update(input)
-    .eq("id", id)
-    .select("*")
-    .single();
+    .eq("id", id);
+
   if (error) throw error;
-  return data as Lot;
 }
 
 export async function deleteLot(id: string): Promise<void> {
@@ -57,6 +55,21 @@ export async function reserveLot(id: string, clientId: string): Promise<Lot> {
       status: "reserved",
       reserved_by: clientId,
       date_reserved: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as Lot;
+}
+
+export async function unreserveLot(id: string): Promise<Lot> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({
+      status: "available",
+      reserved_by: null,
+      date_reserved: null,
     })
     .eq("id", id)
     .select("*")

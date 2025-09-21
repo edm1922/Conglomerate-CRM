@@ -1,5 +1,6 @@
 // Local storage service for data persistence
 import type { Lead, Client, Lot, Payment, Appointment, Task } from '@/types/entities';
+import { sanitizeFilename } from '../utils/sanitize';
 
 const STORAGE_KEYS = {
   LEADS: 'crm_leads',
@@ -207,9 +208,9 @@ export async function uploadClientDocument(
   clientId: string,
   file: File
 ): Promise<{ filePath: string }>{
-  const fileExt = file.name.split(".").pop();
+  const sanitizedFilename = sanitizeFilename(file.name);
   const timestamp = Date.now();
-  const path = `${clientId}/${timestamp}-${file.name}`;
+  const path = `${clientId}/${timestamp}-${sanitizedFilename}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)

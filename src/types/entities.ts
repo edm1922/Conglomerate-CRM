@@ -71,6 +71,11 @@ export interface Payment {
   notes?: string;
   created_at: string;
   updated_at: string;
+  parent_payment_id?: string;
+  installment_number?: number;
+  total_installments?: number;
+  reconciled?: boolean;
+  commission?: number;
 }
 
 export interface Appointment {
@@ -95,9 +100,10 @@ export interface Task {
   priority: "low" | "medium" | "high";
   due_date?: string; // YYYY-MM-DD
   status: "pending" | "in_progress" | "completed";
-  assigned_to?: string; // profiles.id
+  assigned_to?: string;
   created_at: string;
   updated_at: string;
+  profiles?: { full_name?: string }; // Nested profile information
 }
 
 export interface Document {
@@ -113,11 +119,48 @@ export interface Document {
 
 export interface Reminder {
   id: string;
-  lead_id: string;
-  user_id: string;
+  lead_id?: string;
+  user_id?: string;
+  payment_id?: string;
+  appointment_id?: string;
   reminder_date: string;
   notes?: string;
   status: "pending" | "completed";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Commission {
+    id: string;
+    payment_id: string;
+    agent_id: string;
+    amount: number;
+    created_at: string;
+}
+
+export interface TaskTemplate {
+  id: string;
+  title: string;
+  description?: string;
+  priority: "low" | "medium" | "high";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskWorkflow {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskWorkflowStep {
+  id: string;
+  workflow_id: string;
+  template_id: string;
+  step_order: number;
+  delay_after_step?: string; // Interval format (e.g., '1 day', '3 hours')
   created_at: string;
   updated_at: string;
 }

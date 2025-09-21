@@ -6,11 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listPayments, createPayment, updatePayment, deletePayment, onPaymentsChange } from "@/services/payments";
+import { listPayments, createPayment, deletePayment, updatePayment, onPaymentsChange } from "@/services/payments";
 import { listClients } from "@/services/clients";
-import { CreatePaymentSchema, type CreatePayment, type UpdatePayment } from "@/types/validation";
-import { Payment as PaymentEntity, Client as ClientEntity } from "@/types/entities";
+import { listPaymentMethods } from "@/services/paymentMethods";
+import { CreatePaymentSchema, type CreatePayment } from "@/types/validation";
+import { Payment as PaymentEntity, Client as ClientEntity, PaymentMethod } from "@/types/entities";
 import Icon from "@/components/Icon";
+import ReceiptGenerator from "@/components/ReceiptGenerator";
 import {
   Table,
   TableBody,
@@ -33,9 +35,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Receipt, Download, Search, Filter, Trash2, Printer } from "lucide-react";
+import { Plus, Receipt, Download, Search, Filter, Trash2, Printer, MoreVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Payments() {
@@ -45,8 +53,9 @@ export default function Payments() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<string>("all");
+  const [isInstallment, setIsInstallment] = useState(false);
 
-  const { data: paymentsData = [], isLoading: paymentsLoading, isError, error } = useQuery({
+  const { data: paymentsData = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ["payments"],
     queryFn: listPayments,
   });
@@ -54,6 +63,11 @@ export default function Payments() {
   const { data: clientsData = [], isLoading: clientsLoading } = useQuery({
     queryKey: ["clients"],
     queryFn: listClients,
+  });
+
+  const { data: paymentMethods = [], isLoading: paymentMethodsLoading } = useQuery({
+    queryKey: ["payment_methods"],
+    queryFn: listPaymentMethods,
   });
 
   useEffect(() => {
@@ -65,12 +79,44 @@ export default function Payments() {
     };
   }, [queryClient]);
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CreatePayment>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<CreatePayment>({
     resolver: zodResolver(CreatePaymentSchema),
   });
 
+  const paymentType = watch("payment_type");
+
+  useEffect(() => {
+    setIsInstallment(paymentType === "Installment");
+  }, [paymentType]);
+
   const createMutation = useMutation({
-    mutationFn: createPayment,
+    mutationFn: async (values: CreatePayment) => {
+      if (isInstallment && values.total_installments && values.total_installments > 1) {
+        const { amount, total_installments, ...rest } = values;
+        const installmentAmount = amount / total_installments;
+        const parentPayment = await createPayment({
+          ...rest,
+          amount: installmentAmount,
+          installment_number: 1,
+          total_installments,
+        });
+
+        if (parentPayment) {
+          for (let i = 2; i <= total_installments; i++) {
+            await createPayment({
+              ...rest,
+              amount: installmentAmount,
+              parent_payment_id: parentPayment.id,
+              installment_number: i,
+              total_installments,
+              status: "pending", // Subsequent installments are pending
+            });
+          }
+        }
+      } else {
+        await createPayment(values);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
       reset();
@@ -80,6 +126,17 @@ export default function Payments() {
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => updatePayment(id, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+      toast({ title: "Success", description: "Payment status updated." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -97,12 +154,9 @@ export default function Payments() {
     createMutation.mutate(values);
   };
 
-  const paymentMethods = [
-    { id: "cash", name: "Cash", icon: "Banknote" },
-    { id: "bank-transfer", name: "Bank Transfer", icon: "CreditCard" },
-    { id: "gcash", name: "GCash", icon: "Smartphone" },
-    { id: "cheque", name: "Cheque", icon: "Receipt" },
-  ];
+  const handleStatusChange = (id: string, status: string) => {
+    updateMutation.mutate({ id, status });
+  };
 
   const filteredPayments = useMemo(() => {
     return (paymentsData || []).filter((payment) => {
@@ -118,7 +172,7 @@ export default function Payments() {
   }, [paymentsData, searchTerm, selectedMethod]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PH', {
+    return new Intl.NumberFormat('en-ph', {
       style: 'currency',
       currency: 'PHP',
       minimumFractionDigits: 0,
@@ -152,18 +206,10 @@ export default function Payments() {
       .reduce((sum, p) => sum + p.amount, 0),
   };
 
-  if (paymentsLoading || clientsLoading) {
+  if (paymentsLoading || clientsLoading || paymentMethodsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <p>Loading payments...</p>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-red-500">Failed to load payments: {error.message}</p>
       </div>
     );
   }
@@ -175,80 +221,89 @@ export default function Payments() {
           <h1 className="text-3xl font-bold text-foreground">Cashiering & Payments</h1>
           <p className="text-muted-foreground">Record payments and manage transactions</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Record Payment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Record New Payment</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit(handleCreateSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="client_id">Client Name</Label>
-                <Select onValueChange={(value) => setValue("client_id", value)}>
-                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                  <SelectContent>
-                    {(clientsData || []).map((client) => (
-                      <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                 {errors.client_id && <p className="text-sm text-red-500">{errors.client_id.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount (PHP)</Label>
-                <Input id="amount" type="number" {...register("amount", { valueAsNumber: true })} />
-                {errors.amount && <p className="text-sm text-red-500">{errors.amount.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment_method">Payment Method</Label>
-                <Select onValueChange={(value) => setValue("payment_method", value)}>
-                  <SelectTrigger><SelectValue placeholder="Select payment method" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="GCash">GCash</SelectItem>
-                    <SelectItem value="Cheque">Cheque</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.payment_method && <p className="text-sm text-red-500">{errors.payment_method.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment_type">Payment Type</Label>
-                <Select onValueChange={(value) => setValue("payment_type", value)}>
-                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Reservation">Reservation</SelectItem>
-                    <SelectItem value="Partial Payment">Partial Payment</SelectItem>
-                    <SelectItem value="Full Payment">Full Payment</SelectItem>
-                    <SelectItem value="Additional Payment">Additional Payment</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.payment_type && <p className="text-sm text-red-500">{errors.payment_type.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="receipt_no">Receipt Number</Label>
-                <Input id="receipt_no" {...register("receipt_no")} />
-                {errors.receipt_no && <p className="text-sm text-red-500">{errors.receipt_no.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="reference">Reference Number</Label>
-                <Input id="reference" {...register("reference")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" {...register("notes")} />
-              </div>
-              <Button className="w-full" type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Recording..." : "Record Payment"}
+        <div className="flex items-center space-x-4">
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="w-4 h-4" />
+                Record Payment
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-md overflow-y-auto" style={{maxHeight: "90vh"}}>
+              <DialogHeader>
+                <DialogTitle>Record New Payment</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit(handleCreateSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="client_id">Client Name</Label>
+                  <Select onValueChange={(value) => setValue("client_id", value)}>
+                    <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                    <SelectContent>
+                      {(clientsData || []).map((client) => (
+                        <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.client_id && <p className="text-sm text-red-500">{errors.client_id.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount (PHP)</Label>
+                  <Input id="amount" type="number" {...register("amount", { valueAsNumber: true })} />
+                  {errors.amount && <p className="text-sm text-red-500">{errors.amount.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="payment_method">Payment Method</Label>
+                  <Select onValueChange={(value) => setValue("payment_method", value)}>
+                    <SelectTrigger><SelectValue placeholder="Select payment method" /></SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((method) => (
+                        <SelectItem key={method.id} value={method.name}>{method.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.payment_method && <p className="text-sm text-red-500">{errors.payment_method.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="payment_type">Payment Type</Label>
+                  <Select onValueChange={(value) => setValue("payment_type", value)}>
+                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Reservation">Reservation</SelectItem>
+                      <SelectItem value="Partial Payment">Partial Payment</SelectItem>
+                      <SelectItem value="Full Payment">Full Payment</SelectItem>
+                      <SelectItem value="Additional Payment">Additional Payment</SelectItem>
+                      <SelectItem value="Installment">Installment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.payment_type && <p className="text-sm text-red-500">{errors.payment_type.message}</p>}
+                </div>
+                {isInstallment && (
+                  <div className="space-y-2">
+                    <Label htmlFor="total_installments">Number of Installments</Label>
+                    <Input id="total_installments" type="number" {...register("total_installments", { valueAsNumber: true, min: 2 })} />
+                    {errors.total_installments && <p className="text-sm text-red-500">{errors.total_installments.message}</p>}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="receipt_no">Receipt Number</Label>
+                  <Input id="receipt_no" {...register("receipt_no")} />
+                  {errors.receipt_no && <p className="text-sm text-red-500">{errors.receipt_no.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reference">Reference Number</Label>
+                  <Input id="reference" {...register("reference")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea id="notes" {...register("notes")} />
+                </div>
+                <Button className="w-full" type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Recording..." : "Record Payment"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -281,7 +336,7 @@ export default function Payments() {
                 <SelectContent>
                   <SelectItem value="all">All Methods</SelectItem>
                   {paymentMethods.map(method => (
-                    <SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>
+                    <SelectItem key={method.id} value={method.name.toLowerCase().replace(" ", "-")}>{method.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -311,7 +366,14 @@ export default function Payments() {
             <TableBody>
               {filteredPayments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell className="font-medium">{payment.receipt_no}</TableCell>
+                  <TableCell className="font-medium">
+                    {payment.receipt_no}
+                    {payment.parent_payment_id && (
+                      <Badge variant="outline" className="ml-2">
+                        {payment.installment_number}/{payment.total_installments}
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>{(payment.clients as ClientEntity)?.name || "-"}</TableCell>
                   <TableCell className="font-semibold">{formatCurrency(payment.amount)}</TableCell>
@@ -320,8 +382,25 @@ export default function Payments() {
                   <TableCell>{getStatusBadge(payment.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm"><Download className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm"><Printer className="w-4 h-4" /></Button>
+                      <ReceiptGenerator payment={payment} />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onSelect={() => handleStatusChange(payment.id, "confirmed")}>
+                            Mark as Confirmed
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleStatusChange(payment.id, "pending")}>
+                            Mark as Pending
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleStatusChange(payment.id, "failed")}>
+                            Mark as Failed
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button variant="destructive" size="sm" onClick={() => { if (confirm("Are you sure?")) deleteMutation.mutate(payment.id); }}><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </TableCell>

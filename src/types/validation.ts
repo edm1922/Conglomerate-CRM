@@ -124,6 +124,9 @@ export const PaymentSchema = z.object({
   notes: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
+  parent_payment_id: z.string().uuid().optional(),
+  installment_number: z.number().int().positive().optional(),
+  total_installments: z.number().int().positive().optional(),
 });
 
 export const CreatePaymentSchema = PaymentSchema.omit({
@@ -150,6 +153,7 @@ export const AppointmentSchema = z.object({
   notes: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
+  reminder_minutes_before: z.number().int().positive().optional(),
 });
 
 export const CreateAppointmentSchema = AppointmentSchema.omit({
@@ -211,8 +215,10 @@ export const UpdateDocumentSchema = CreateDocumentSchema.partial();
 // Reminder schemas
 export const ReminderSchema = z.object({
   id: z.string().uuid(),
-  lead_id: z.string().uuid(),
-  user_id: z.string().uuid(),
+  lead_id: z.string().uuid().optional(),
+  user_id: z.string().uuid().optional(),
+  payment_id: z.string().uuid().optional(),
+  appointment_id: z.string().uuid().optional(),
   reminder_date: z.string(),
   notes: z.string().optional(),
   status: z.enum(["pending", "completed"]),
@@ -229,6 +235,27 @@ export const CreateReminderSchema = ReminderSchema.omit({
 });
 
 export const UpdateReminderSchema = CreateReminderSchema.partial();
+
+// Appointment Template schemas
+export const AppointmentTemplateSchema = z.object({
+    id: z.string().uuid(),
+    template_name: z.string().min(1, "Template name is required"),
+    title: z.string().min(1, "Title is required"),
+    type: z.string().min(1, "Type is required"),
+    duration: z.number().positive(),
+    location: z.string().optional(),
+    notes: z.string().optional(),
+    created_at: z.string(),
+    updated_at: z.string(),
+});
+
+export const CreateAppointmentTemplateSchema = AppointmentTemplateSchema.omit({
+    id: true,
+    created_at: true,
+    updated_at: true,
+});
+
+export const UpdateAppointmentTemplateSchema = CreateAppointmentTemplateSchema.partial();
 
 // Export types from schemas
 export type Profile = z.infer<typeof ProfileSchema>;
@@ -269,3 +296,7 @@ export type UpdateReminder = z.infer<typeof UpdateReminderSchema>;
 
 export type Communication = z.infer<typeof CommunicationSchema>;
 export type CreateCommunication = z.infer<typeof CreateCommunicationSchema>;
+
+export type AppointmentTemplate = z.infer<typeof AppointmentTemplateSchema>;
+export type CreateAppointmentTemplate = z.infer<typeof CreateAppointmentTemplateSchema>;
+export type UpdateAppointmentTemplate = z.infer<typeof UpdateAppointmentTemplateSchema>;
