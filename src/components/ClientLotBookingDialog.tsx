@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -19,31 +18,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { listAvailableLots, reserveLot } from "@/services/lots";
-import { Client, Lot } from "@/types/entities";
+import { listClients } from "@/services/clients";
+import { reserveLot } from "@/services/lots";
+import { Lot } from "@/types/entities";
 
 const BookingSchema = z.object({
-  lotId: z.string().min(1, "Please select a lot."),
+  clientId: z.string().min(1, "Please select a client."),
 });
 
 type BookingForm = z.infer<typeof BookingSchema>;
 
 interface ClientLotBookingDialogProps {
-  client: Client;
+  lot: Lot;
   onBooking?: () => void;
 }
 
 function ClientLotBookingDialog({
-  client,
+  lot,
   onBooking,
 }: ClientLotBookingDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(true);
 
-  const { data: lots = [], isLoading: lotsLoading } = useQuery({
-    queryKey: ["lots", "available"],
-    queryFn: listAvailableLots,
+  const { data: clients = [], isLoading: clientsLoading } = useQuery({
+    queryKey: ["clients"],
+    queryFn: listClients,
   });
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<BookingForm>({
@@ -67,40 +67,40 @@ function ClientLotBookingDialog({
   });
 
   const onSubmit = (data: BookingForm) => {
-    reserveMutation.mutate({ lotId: data.lotId, clientId: client.id });
+    reserveMutation.mutate({ lotId: lot.id, clientId: data.clientId });
   };
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Book a Lot for {client.name}</DialogTitle>
+          <DialogTitle>Book Lot: Block {lot.block_number}, Lot {lot.lot_number}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <Select
-              onValueChange={(value) => setValue("lotId", value)}
-              {...register("lotId")}
+              onValueChange={(value) => setValue("clientId", value)}
+              {...register("clientId")}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a lot..." />
+                <SelectValue placeholder="Select a client..." />
               </SelectTrigger>
               <SelectContent>
-                {lotsLoading ? (
+                {clientsLoading ? (
                   <SelectItem value="loading" disabled>
-                    Loading available lots...
+                    Loading clients...
                   </SelectItem>
                 ) : (
-                  lots.map((lot) => (
-                    <SelectItem key={lot.id} value={lot.id}>
-                      Block {lot.block_number}, Lot {lot.lot_number} ({lot.size} sqm)
+                  clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
                     </SelectItem>
                   ))
                 )}
               </SelectContent>
             </Select>
-            {errors.lotId && (
-              <p className="text-red-500 text-sm mt-1">{errors.lotId.message}</p>
+            {errors.clientId && (
+              <p className="text-red-500 text-sm mt-1">{errors.clientId.message}</p>
             )}
           </div>
           <Button type="submit" disabled={reserveMutation.isPending}>

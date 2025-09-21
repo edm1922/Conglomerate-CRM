@@ -10,7 +10,7 @@ const REMINDERS_TABLE = "reminders";
 export async function listReminders(): Promise<Reminder[]> {
     const { data, error } = await supabase
         .from(REMINDERS_TABLE)
-        .select("*")
+        .select("*, appointments(title)")
         .order("reminder_date", { ascending: true });
     if (error) throw error;
     return data as unknown as Reminder[];
@@ -20,7 +20,7 @@ export async function createReminder(input: CreateReminder): Promise<Reminder> {
     const { data, error } = await supabase
         .from(REMINDERS_TABLE)
         .insert(input)
-        .select("*")
+        .select("*, appointments(title)")
         .single();
     if (error) throw error;
     return data as unknown as Reminder;
@@ -31,7 +31,7 @@ export async function updateReminder(id: string, input: UpdateReminder): Promise
         .from(REMINDERS_TABLE)
         .update(input)
         .eq("id", id)
-        .select("*")
+        .select("*, appointments(title)")
         .single();
     if (error) throw error;
     return data as unknown as Reminder;

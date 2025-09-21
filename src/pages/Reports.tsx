@@ -32,7 +32,9 @@ export default function Reports() {
       if (!dateRange?.from || !dateRange?.to) {
         throw new Error("Please select a date range.");
       }
-      return generateSalesReport(dateRange.from.toISOString(), dateRange.to.toISOString());
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      return generateSalesReport(dateRange.from.toISOString(), toDate.toISOString());
     },
     onSuccess: (data) => {
       setSalesReport(data);
@@ -48,7 +50,9 @@ export default function Reports() {
       if (!dateRange?.from || !dateRange?.to) {
         throw new Error("Please select a date range.");
       }
-      return generateLeadSourceReport(dateRange.from.toISOString(), dateRange.to.toISOString());
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      return generateLeadSourceReport(dateRange.from.toISOString(), toDate.toISOString());
     },
     onSuccess: (data) => {
       setLeadSourceReport(data);
@@ -75,7 +79,9 @@ export default function Reports() {
       if (!dateRange?.from || !dateRange?.to) {
         throw new Error("Please select a date range.");
       }
-      return generatePaymentAnalyticsReport(dateRange.from.toISOString(), dateRange.to.toISOString());
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      return generatePaymentAnalyticsReport(dateRange.from.toISOString(), toDate.toISOString());
     },
     onSuccess: (data) => {
       setPaymentAnalyticsReport(data);
@@ -91,7 +97,9 @@ export default function Reports() {
       if (!dateRange?.from || !dateRange?.to) {
         throw new Error("Please select a date range.");
       }
-      return generateFinancialSummaryReport(dateRange.from.toISOString(), dateRange.to.toISOString());
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      return generateFinancialSummaryReport(dateRange.from.toISOString(), toDate.toISOString());
     },
     onSuccess: (data) => {
       setFinancialSummaryReport(data);
@@ -107,7 +115,9 @@ export default function Reports() {
       if (!dateRange?.from || !dateRange?.to) {
         throw new Error("Please select a date range.");
       }
-      return generateCommissionReport(dateRange.from.toISOString(), dateRange.to.toISOString());
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      return generateCommissionReport(dateRange.from.toISOString(), toDate.toISOString());
     },
     onSuccess: (data) => {
       setCommissionReport(data);

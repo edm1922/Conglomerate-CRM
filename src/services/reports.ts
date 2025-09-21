@@ -39,7 +39,7 @@ export async function generateSalesReport(startDate: string, endDate: string): P
     `)
     .gte('created_at', startDate)
     .lte('created_at', endDate)
-    .eq('status', 'completed');
+    .eq('status', 'confirmed');
 
   if (error) {
     throw new Error(`Failed to fetch sales data: ${error.message}`);

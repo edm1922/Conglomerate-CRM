@@ -63,6 +63,21 @@ export async function reserveLot(id: string, clientId: string): Promise<Lot> {
   return data as Lot;
 }
 
+export async function unreserveLot(id: string): Promise<Lot> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({
+      status: "available",
+      reserved_by: null,
+      date_reserved: null,
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as Lot;
+}
+
 export async function sellLot(id: string, clientId: string): Promise<Lot> {
   const { data, error } = await supabase
     .from(TABLE)

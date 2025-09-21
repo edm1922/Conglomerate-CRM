@@ -127,7 +127,6 @@ export const PaymentSchema = z.object({
   parent_payment_id: z.string().uuid().optional(),
   installment_number: z.number().int().positive().optional(),
   total_installments: z.number().int().positive().optional(),
-  reconciled: z.boolean().optional(),
 });
 
 export const CreatePaymentSchema = PaymentSchema.omit({
@@ -136,7 +135,6 @@ export const CreatePaymentSchema = PaymentSchema.omit({
   updated_at: true,
 }).extend({
   status: z.enum(["pending", "confirmed", "failed"]).default("pending"),
-  reconciled: z.boolean().default(false),
 });
 
 export const UpdatePaymentSchema = CreatePaymentSchema.partial();

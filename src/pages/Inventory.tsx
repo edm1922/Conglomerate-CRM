@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listLots, createLot, updateLot, deleteLot, onLotsChange } from "@/services/lots";
+import { listLots, createLot, updateLot, deleteLot, onLotsChange, unreserveLot } from "@/services/lots";
 import { CreateLotSchema, UpdateLotSchema, type CreateLot, type UpdateLot } from "@/types/validation";
 import { Lot as LotEntity } from "@/types/entities";
 import ClientLotBookingDialog from "@/components/ClientLotBookingDialog";
@@ -92,7 +92,7 @@ function EditLotDialog({ lot, open, onOpenChange, onUpdate }: { lot: LotEntity; 
               </div>
                <div className="space-y-2">
                 <Label htmlFor="status-edit">Status</Label>
-                <Select defaultValue={lot.status} onValueChange={(v) => setValue("status", v as "available" | "reserved" | "sold")} disabled>
+                <Select defaultValue={lot.status} onValueChange={(v) => setValue("status", v as "available" | "reserved" | "sold")} disabled={lot.status === 'sold'}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="available">Available</SelectItem>
@@ -175,6 +175,19 @@ export default function Inventory() {
     }
   });
 
+  const unreserveMutation = useMutation({
+    mutationFn: unreserveLot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lots"] });
+      setEditDialogOpen(false);
+      setEditingLot(null);
+      toast({ title: "Success", description: "Lot has been unreserved." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
   const deleteMutation = useMutation({
     mutationFn: deleteLot,
     onSuccess: () => {
@@ -192,7 +205,11 @@ export default function Inventory() {
 
   const handleUpdateSubmit = (values: UpdateLot) => {
     if (editingLot) {
-      updateMutation.mutate({ id: editingLot.id, data: values });
+      if (editingLot.status === 'reserved' && values.status === 'available') {
+        unreserveMutation.mutate(editingLot.id);
+      } else {
+        updateMutation.mutate({ id: editingLot.id, data: values });
+      }
     }
   };
 
@@ -388,9 +405,23 @@ export default function Inventory() {
                     Book
                   </Button>
                 )}
-                <Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteMutation.mutate(lot.id); }}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    if (confirm("Are you sure?")) {
+                      if (lot.status === 'reserved') {
+                        unreserveMutation.mutate(lot.id);
+                      } else {
+                        deleteMutation.mutate(lot.id);
+                      }
+                    }
+                  }}
+                  disabled={lot.status === 'sold'}
+                >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
+                  {lot.status === 'reserved' ? 'Unreserve' : 'Delete'}
                 </Button>
                 <Button
                   variant={comparisonList.find(l => l.id === lot.id) ? "secondary" : "outline"}

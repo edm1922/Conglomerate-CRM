@@ -100,7 +100,6 @@ create table if not exists public.payments (
   notes text,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
-  reconciled boolean default false,
   constraint installment_check check (installment_number is null or total_installments is null or installment_number <= total_installments)
 );
 
@@ -148,7 +147,7 @@ create table if not exists public.documents (
 -- Reminders
 create table if not exists public.reminders (
   id uuid primary key default gen_random_uuid(),
-  lead_id uuid references public.leads(id) on delete cascade,
+  lead_.id uuid references public.leads(id) on delete cascade,
   user_id uuid references public.profiles(id) on delete cascade,
   payment_id uuid references public.payments(id) on delete cascade,
   reminder_date timestamptz not null,
@@ -183,7 +182,7 @@ create policy "communications_read_all" on public.communications for select usin
 create policy "communications_write" on public.communications for insert with check (auth.role() = 'authenticated');
 
 create policy "reminders_read_all" on public.reminders for select using (auth.role() = 'authenticated');
-create policy "reminders_write" on public.reminders for insert with check (auth.role() = 'authenticated');
+create policy "reminders_write" on public.reminders for insert with check (.auth.role() = 'authenticated');
 create policy "reminders_update" on public.reminders for update using (auth.role() = 'authenticated');
 create policy "reminders_delete" on public.reminders for delete using (auth.role() = 'authenticated');
 
