@@ -9,6 +9,7 @@ import {
   Calendar,
   BarChart3,
   Home,
+  FileText
 } from "lucide-react";
 
 import {
@@ -31,6 +32,7 @@ const navigationItems = [
   { title: "Client Profiles", url: "/clients", icon: UserCircle },
   { title: "Payments", url: "/payments", icon: CreditCard },
   { title: "Calendar", url: "/calendar", icon: Calendar },
+  { title: "Appointment Templates", url: "/appointment-templates", icon: FileText },
   { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 

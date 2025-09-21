@@ -13,12 +13,27 @@ import Calendar from "./pages/Calendar";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import Admin from "./pages/Admin";
+import AppointmentTemplates from "./pages/appointment-templates";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isLoading } = useSessionContext();
   const user = useUser();
   
-  console.log('ProtectedRoute:', { isLoading, user: user?.id });
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isLoading } = useSessionContext();
+  const user = useUser();
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -26,6 +41,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.email !== "edronmaguale635@gmail.com") {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -40,6 +59,16 @@ export const router = createBrowserRouter([
           <Dashboard />
         </Layout>
       </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin",
+    element: (
+      <AdminRoute>
+        <Layout>
+          <Admin />
+        </Layout>
+      </AdminRoute>
     ),
   },
   {
@@ -88,6 +117,16 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <Layout>
           <Calendar />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+   {
+    path: "/appointment-templates",
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <AppointmentTemplates />
         </Layout>
       </ProtectedRoute>
     ),

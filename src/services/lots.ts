@@ -34,15 +34,13 @@ export async function createLot(input: CreateLot): Promise<Lot> {
   return data as Lot;
 }
 
-export async function updateLot(id: string, input: UpdateLot): Promise<Lot> {
-  const { data, error } = await supabase
+export async function updateLot(id: string, input: UpdateLot): Promise<void> {
+  const { error } = await supabase
     .from(TABLE)
     .update(input)
-    .eq("id", id)
-    .select("*")
-    .single();
+    .eq("id", id);
+
   if (error) throw error;
-  return data as Lot;
 }
 
 export async function deleteLot(id: string): Promise<void> {

@@ -1,24 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUser } from "@supabase/auth-helpers-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { signInWithEmail, signUpWithEmail } from "@/services/auth";
+import { signInWithEmail } from "@/services/auth";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
+  const user = useUser();
+
+  useEffect(() => {
+    if (user) {
+      if (user.email === "edronmaguale635@gmail.com") {
+        navigate("/admin", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
+    }
+  }, [user, navigate]);
 
   const submit = async () => {
     try {
       setLoading(true);
       setError(null);
-      if (mode === "signin") await signInWithEmail(email, password);
-      else await signUpWithEmail(email, password);
-      // Page will re-route by protected routes when session is present
+      await signInWithEmail(email, password);
+      // The useEffect will handle redirection when the user object is updated.
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -30,7 +43,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>{mode === "signin" ? "Sign in" : "Create account"}</CardTitle>
+          <CardTitle>Sign in</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -43,15 +56,10 @@ export default function Login() {
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button className="w-full" onClick={submit} disabled={loading}>
-            {loading ? "Please wait..." : mode === "signin" ? "Sign in" : "Sign up"}
-          </Button>
-          <Button variant="outline" className="w-full" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}> 
-            {mode === "signin" ? "Create an account" : "Have an account? Sign in"}
+            {loading ? "Please wait..." : "Sign in"}
           </Button>
         </CardContent>
       </Card>
     </div>
   );
 }
-
-

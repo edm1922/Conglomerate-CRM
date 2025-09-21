@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const LotMap = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const { data: lots, isLoading, isError } = useQuery<Lot[]>(['lots'], listLots);
+  const { data: lots, isLoading, isError } = useQuery<Lot[]>({queryKey:['lots'], queryFn:listLots});
 
   const filteredLots = useMemo(() => {
     if (!lots) return [];

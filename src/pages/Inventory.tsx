@@ -13,6 +13,7 @@ import ClientLotBookingDialog from "@/components/ClientLotBookingDialog";
 import LotMap from "@/components/LotMap";
 import LotComparison from "@/components/LotComparison";
 import PriceHistory from "@/components/PriceHistory";
+import PriceManagement from "@/components/PriceManagement";
 import {
   Select,
   SelectContent,
@@ -91,7 +92,7 @@ function EditLotDialog({ lot, open, onOpenChange, onUpdate }: { lot: LotEntity; 
               </div>
                <div className="space-y-2">
                 <Label htmlFor="status-edit">Status</Label>
-                <Select defaultValue={lot.status} onValueChange={(v) => setValue("status", v as "available" | "reserved" | "sold")}>
+                <Select defaultValue={lot.status} onValueChange={(v) => setValue("status", v as "available" | "reserved" | "sold")} disabled>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="available">Available</SelectItem>
@@ -294,7 +295,7 @@ export default function Inventory() {
                   {errors.lot_number && <p className="text-sm text-red-500">{errors.lot_number.message}</p>}
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space.y-2">
                 <Label htmlFor="size">Size (sqm)</Label>
                 <Input id="size" type="number" {...register("size", { valueAsNumber: true })} />
                 {errors.size && <p className="text-sm text-red-500">{errors.size.message}</p>}
@@ -319,6 +320,8 @@ export default function Inventory() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <PriceManagement />
 
       <LotMap />
 

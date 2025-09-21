@@ -1,6 +1,8 @@
 import { supabase } from "./supabase";
 import type { Task } from "@/types/entities";
 import type { CreateTask, UpdateTask } from "@/types/validation";
+import { createNotification } from "./notifications";
+import { getSession } from "./auth";
 
 const TASKS_TABLE = "tasks";
 
@@ -31,6 +33,14 @@ export async function createTask(input: CreateTask): Promise<Task> {
     .select("*, profiles(full_name)")
     .single();
   if (error) throw error;
+
+  const session = await getSession();
+  const userId = session?.user?.id;
+
+  if (userId && data) {
+    await createNotification(`New task: ${data.title}`, userId);
+  }
+
   return data as unknown as Task;
 }
 
