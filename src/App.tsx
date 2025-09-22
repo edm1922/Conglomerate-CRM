@@ -4,7 +4,6 @@ import { router } from "./router";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const App = () => {
-  console.log('App component rendering...');
   return (
     <ErrorBoundary>
       <RouterProvider router={router} />

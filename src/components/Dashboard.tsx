@@ -104,125 +104,188 @@ export function Dashboard() {
   }, [lots]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of today's activities and key metrics</p>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-[hsl(var(--foreground))] mb-2">Dashboard</h1>
+        <p className="text-lg text-[hsl(var(--muted-foreground))]">Overview of today's activities and key metrics</p>
       </div>
 
+      {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-primary text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Leads</CardTitle>
-            <Users className="h-4 w-4" />
+        <Card className="card-professional bg-gradient-to-br from-[hsl(var(--professional-blue))] to-[hsl(var(--professional-blue-dark))] text-white border-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium opacity-90">Today's Leads</CardTitle>
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <Users className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todayStats.leads}</div>
-            <p className="text-xs opacity-80">Newly created today</p>
+            <div className="text-3xl font-bold mb-1">{todayStats.leads}</div>
+            <p className="text-xs opacity-80">New inquiries today</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-accent text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Appointments</CardTitle>
-            <Calendar className="h-4 w-4" />
+        <Card className="card-professional bg-gradient-to-br from-[hsl(var(--professional-green))] to-[hsl(142_76%_31%)] text-white border-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium opacity-90">Appointments</CardTitle>
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <Calendar className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todayStats.appointments}</div>
+            <div className="text-3xl font-bold mb-1">{todayStats.appointments}</div>
             <p className="text-xs opacity-80">Scheduled for today</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Payments</CardTitle>
-            <span className="text-lg font-bold text-success">₱</span>
+        <Card className="card-professional">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-[hsl(var(--muted-foreground))]">Payments</CardTitle>
+            <div className="w-8 h-8 bg-[hsl(var(--professional-green))]/10 rounded-lg flex items-center justify-center">
+              <span className="text-lg font-bold text-[hsl(var(--professional-green))]">₱</span>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todayStats.payments}</div>
-            <p className="text-xs text-muted-foreground">₱{todayStats.totalPayments.toLocaleString()} collected today</p>
+            <div className="text-3xl font-bold text-[hsl(var(--foreground))] mb-1">{todayStats.payments}</div>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">₱{todayStats.totalPayments.toLocaleString()} collected today</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Clients</CardTitle>
-            <TrendingUp className="h-4 w-4 text-success" />
+        <Card className="card-professional">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-[hsl(var(--muted-foreground))]">New Clients</CardTitle>
+            <div className="w-8 h-8 bg-[hsl(var(--professional-green))]/10 rounded-lg flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-[hsl(var(--professional-green))]" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todayStats.newClients}</div>
-            <p className="text-xs text-muted-foreground">This week</p>
+            <div className="text-3xl font-bold text-[hsl(var(--foreground))] mb-1">{todayStats.newClients}</div>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">This week</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" />Recent Leads</CardTitle>
+      {/* Activity Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="card-professional">
+          <CardHeader className="pb-6">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="w-10 h-10 bg-[hsl(var(--professional-blue))]/10 rounded-lg flex items-center justify-center">
+                <Users className="w-5 h-5 text-[hsl(var(--professional-blue))]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-[hsl(var(--foreground))]">Recent Leads</h3>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Latest inquiries</p>
+              </div>
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentLeads.map((lead) => (
-                <div key={lead.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+          <CardContent className="space-y-4">
+            {recentLeads.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="w-12 h-12 text-[hsl(var(--muted-foreground))] mx-auto mb-4" />
+                <p className="text-[hsl(var(--muted-foreground))]">No recent leads</p>
+              </div>
+            ) : (
+              recentLeads.map((lead) => (
+                <div key={lead.id} className="flex items-center justify-between p-4 border border-[hsl(var(--border))] rounded-lg hover:shadow-md transition-shadow">
                   <div>
-                    <h4 className="font-medium">{lead.name}</h4>
-                    <p className="text-sm text-muted-foreground">{lead.source}</p>
+                    <h4 className="font-medium text-[hsl(var(--foreground))]">{lead.name}</h4>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">{lead.source}</p>
                   </div>
-                  <Badge variant={lead.status === "new" ? "default" : "secondary"}>{lead.status}</Badge>
+                  <Badge 
+                    variant={lead.status === "new" ? "default" : "secondary"}
+                    className={lead.status === "new" ? "bg-[hsl(var(--professional-blue))] text-white" : ""}
+                  >
+                    {lead.status}
+                  </Badge>
                 </div>
-              ))}
-            </div>
-            <Button asChild variant="outline" className="w-full mt-4"><Link to="/leads">View All Leads</Link></Button>
+              ))
+            )}
+            <Button asChild variant="outline" className="w-full mt-6 btn-secondary">
+              <Link to="/leads">View All Leads</Link>
+            </Button>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Calendar className="w-5 h-5" />Today's Schedule</CardTitle>
+        <Card className="card-professional">
+          <CardHeader className="pb-6">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="w-10 h-10 bg-[hsl(var(--professional-green))]/10 rounded-lg flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-[hsl(var(--professional-green))]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-[hsl(var(--foreground))]">Today's Schedule</h3>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Upcoming appointments</p>
+              </div>
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {todayAppointments.map((appointment) => (
-                <div key={appointment.id} className="flex items-center gap-4 p-3 border border-border rounded-lg">
-                  <div className="flex-shrink-0"><Clock className="w-4 h-4 text-muted-foreground" /></div>
-                  <div className="flex-1">
-                    <h4 className="font-medium">{(appointment.clients as any)?.name || 'Unknown Client'}</h4>
-                    <p className="text-sm text-muted-foreground">{appointment.type}</p>
+          <CardContent className="space-y-4">
+            {todayAppointments.length === 0 ? (
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 text-[hsl(var(--muted-foreground))] mx-auto mb-4" />
+                <p className="text-[hsl(var(--muted-foreground))]">No appointments today</p>
+              </div>
+            ) : (
+              todayAppointments.map((appointment) => (
+                <div key={appointment.id} className="flex items-center gap-4 p-4 border border-[hsl(var(--border))] rounded-lg hover:shadow-md transition-shadow">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-[hsl(var(--professional-green))]/10 rounded-lg flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-[hsl(var(--professional-green))]" />
+                    </div>
                   </div>
-                  <Badge variant="outline">{appointment.scheduled_time}</Badge>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-[hsl(var(--foreground))]">{(appointment.clients as any)?.name || 'Unknown Client'}</h4>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">{appointment.type}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[hsl(var(--professional-blue))] border-[hsl(var(--professional-blue))]">
+                    {appointment.scheduled_time}
+                  </Badge>
                 </div>
-              ))}
-            </div>
-            <Button asChild variant="outline" className="w-full mt-4"><Link to="/calendar">View Calendar</Link></Button>
+              ))
+            )}
+            <Button asChild variant="outline" className="w-full mt-6 btn-secondary">
+              <Link to="/calendar">View Calendar</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Building className="w-5 h-5" />Inventory Overview</CardTitle>
+      {/* Inventory Overview */}
+      <Card className="card-professional">
+        <CardHeader className="pb-6">
+          <CardTitle className="flex items-center gap-3 text-xl">
+            <div className="w-10 h-10 bg-[hsl(var(--professional-blue))]/10 rounded-lg flex items-center justify-center">
+              <Building className="w-5 h-5 text-[hsl(var(--professional-blue))]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-[hsl(var(--foreground))]">Inventory Overview</h3>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Property status breakdown</p>
+            </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-success/10 rounded-lg">
-              <div className="text-2xl font-bold text-success">{inventoryStatus.available}</div>
-              <p className="text-sm text-muted-foreground">Available</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center p-6 bg-[hsl(var(--professional-green))]/10 rounded-lg border border-[hsl(var(--professional-green))]/20">
+              <div className="text-3xl font-bold text-[hsl(var(--professional-green))] mb-2">{inventoryStatus.available}</div>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] font-medium">Available</p>
             </div>
-            <div className="text-center p-4 bg-warning/10 rounded-lg">
-              <div className="text-2xl font-bold text-warning">{inventoryStatus.reserved}</div>
-              <p className="text-sm text-muted-foreground">Reserved</p>
+            <div className="text-center p-6 bg-orange-500/10 rounded-lg border border-orange-500/20">
+              <div className="text-3xl font-bold text-orange-600 mb-2">{inventoryStatus.reserved}</div>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] font-medium">Reserved</p>
             </div>
-            <div className="text-center p-4 bg-destructive/10 rounded-lg">
-              <div className="text-2xl font-bold text-destructive">{inventoryStatus.sold}</div>
-              <p className="text-sm text-muted-foreground">Sold</p>
+            <div className="text-center p-6 bg-[hsl(var(--professional-red))]/10 rounded-lg border border-[hsl(var(--professional-red))]/20">
+              <div className="text-3xl font-bold text-[hsl(var(--professional-red))] mb-2">{inventoryStatus.sold}</div>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] font-medium">Sold</p>
             </div>
-            <div className="text-center p-4 bg-primary/10 rounded-lg">
-              <div className="text-2xl font-bold text-primary">{inventoryStatus.total}</div>
-              <p className="text-sm text-muted-foreground">Total Lots</p>
+            <div className="text-center p-6 bg-[hsl(var(--professional-blue))]/10 rounded-lg border border-[hsl(var(--professional-blue))]/20">
+              <div className="text-3xl font-bold text-[hsl(var(--professional-blue))] mb-2">{inventoryStatus.total}</div>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] font-medium">Total Lots</p>
             </div>
           </div>
-          <Button asChild variant="outline" className="w-full mt-4"><Link to="/inventory">Manage Inventory</Link></Button>
+          <Button asChild variant="outline" className="w-full mt-6 btn-secondary">
+            <Link to="/inventory">Manage Inventory</Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

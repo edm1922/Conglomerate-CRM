@@ -5,6 +5,7 @@ import { useUser, useSessionContext } from "@supabase/auth-helpers-react";
 import { Layout } from "@/components/Layout";
 import { Dashboard } from "@/components/Dashboard";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { isAdminUser } from "@/services/auth";
 import Leads from "./pages/Leads";
 import Inventory from "./pages/Inventory";
 import Clients from "./pages/Clients";
@@ -43,7 +44,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.email !== "edronmaguale635@gmail.com") {
+  if (!isAdminUser(user.email || "")) {
     return <Navigate to="/" replace />;
   }
 

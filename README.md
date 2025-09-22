@@ -1,73 +1,110 @@
-# Welcome to your Lovable project
+# Conglomerate Realty CRM
 
-## Project info
+A professional CRM system built with React, TypeScript, Vite, and Supabase.
 
-**URL**: https://lovable.dev/projects/5c1f5555-05ac-4719-a9a7-cfcfa39404b7
+## Features
 
-## How can I edit this code?
+- **Lead Management**: Track and manage potential clients
+- **Client Management**: Maintain client information and history
+- **Inventory Management**: Manage property lots and inventory
+- **Payment Tracking**: Record and track payments
+- **Calendar & Appointments**: Schedule and manage appointments
+- **Reports & Analytics**: Generate business insights
+- **Admin Dashboard**: System administration and user management
+- **Document Templates**: Manage business documents
+- **Task Management**: Assign and track tasks
 
-There are several ways of editing your application.
+## Technology Stack
 
-**Use Lovable**
+- **Frontend**: React 18, TypeScript, Vite
+- **UI Components**: Radix UI, Tailwind CSS, Shadcn/ui
+- **Backend**: Supabase (Database, Authentication, Real-time)
+- **State Management**: Zustand, React Query
+- **Forms**: React Hook Form, Zod validation
+- **Charts**: Recharts
+- **Deployment**: Vercel
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/5c1f5555-05ac-4719-a9a7-cfcfa39404b7) and start prompting.
+## Environment Setup
 
-Changes made via Lovable will be committed automatically to this repo.
+1. Copy the environment file:
+   ```bash
+   cp .env.example .env
+   ```
 
-**Use your preferred IDE**
+2. Update the environment variables in `.env`:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_ADMIN_EMAIL=edronmaguale635@gmail.com
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Development
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Follow these steps:
+2. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. Open [http://localhost:8080](http://localhost:8080) to view it in the browser.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## Production Build
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. Build the application:
+   ```bash
+   npm run build
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+2. Preview the production build:
+   ```bash
+   npm run preview
+   ```
 
-**Edit a file directly in GitHub**
+## Deployment to Vercel
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. Install Vercel CLI:
+   ```bash
+   npm install -g vercel
+   ```
 
-**Use GitHub Codespaces**
+2. Deploy:
+   ```bash
+   vercel
+   ```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+3. Set environment variables in Vercel Dashboard:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_ADMIN_EMAIL`
 
-## What technologies are used for this project?
+## Admin Access
 
-This project is built with:
+The admin panel is restricted to the email address specified in `VITE_ADMIN_EMAIL`. Only users with this email can:
+- Create new users
+- Access system administration features
+- Manage templates and configurations
+- Export/import system data
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Security Features
 
-## How can I deploy this project?
+- Environment-based configuration
+- Role-based access control
+- Secure authentication with Supabase
+- Protected admin routes
+- Security headers configured
+- HTTPS enforcement
 
-Simply open [Lovable](https://lovable.dev/projects/5c1f5555-05ac-4719-a9a7-cfcfa39404b7) and click on Share -> Publish.
+## Performance Optimizations
 
-## Can I connect a custom domain to my Lovable project?
+- Code splitting and lazy loading
+- Optimized bundle sizes
+- Production build minification
+- CDN-ready static assets
 
-Yes, you can!
+## Support
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+For technical support or questions, contact the development team.

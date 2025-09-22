@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/DateRangePicker";
-import { Download, FileText, Loader2, FileSpreadsheet } from "lucide-react";
+import { Download, FileText, Loader2, FileSpreadsheet, BarChart3, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateSalesReport, type SalesReportData, generateLeadSourceReport, type LeadSourceReportData, generatePaymentAnalyticsReport, type PaymentAnalyticsReportData, generateFinancialSummaryReport, type FinancialSummaryReportData, generateCommissionReport, type CommissionReportData } from "@/services/reports";
 import { generatePricingReport, type PricingReportData } from "@/services";
@@ -259,21 +259,22 @@ export default function Reports() {
   }, [commissionReport]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Reports & Analytics</h1>
-          <p className="text-muted-foreground">Generate and view sales and performance reports</p>
+          <h1 className="text-4xl font-bold text-[hsl(var(--foreground))] mb-2">Reports & Analytics</h1>
+          <p className="text-lg text-[hsl(var(--muted-foreground))]">Generate and view sales and performance reports</p>
         </div>
         <div className="flex items-center gap-4">
           <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
-          <Button className="gap-2" disabled={isGenerating} onClick={handleGenerateReport}>
+          <Button className="gap-2 btn-primary" disabled={isGenerating} onClick={handleGenerateReport}>
             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             Generate Report
           </Button>
           <Button 
             variant="outline" 
-            className="gap-2" 
+            className="gap-2 btn-secondary" 
             onClick={handleExportReport}
             disabled={!salesReport && !leadSourceReport && !pricingReport && !paymentAnalyticsReport && !financialSummaryReport && !commissionReport}
           >
@@ -283,50 +284,61 @@ export default function Reports() {
         </div>
       </div>
 
-      <Tabs defaultValue="sales" onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="sales">Sales Report</TabsTrigger>
-          <TabsTrigger value="leads">Lead Source Report</TabsTrigger>
-          <TabsTrigger value="pricing">Pricing Report</TabsTrigger>
-          <TabsTrigger value="payments">Payment Analytics</TabsTrigger>
-          <TabsTrigger value="financial-summary">Financial Summary</TabsTrigger>
-          <TabsTrigger value="commission">Commission Report</TabsTrigger>
+      <Tabs defaultValue="sales" onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6 bg-white shadow-sm rounded-lg p-1">
+          <TabsTrigger value="sales" className="data-[state=active]:bg-[hsl(var(--professional-blue))] data-[state=active]:text-white">Sales Report</TabsTrigger>
+          <TabsTrigger value="leads" className="data-[state=active]:bg-[hsl(var(--professional-blue))] data-[state=active]:text-white">Lead Source</TabsTrigger>
+          <TabsTrigger value="pricing" className="data-[state=active]:bg-[hsl(var(--professional-blue))] data-[state=active]:text-white">Pricing</TabsTrigger>
+          <TabsTrigger value="payments" className="data-[state=active]:bg-[hsl(var(--professional-blue))] data-[state=active]:text-white">Payments</TabsTrigger>
+          <TabsTrigger value="financial-summary" className="data-[state=active]:bg-[hsl(var(--professional-blue))] data-[state=active]:text-white">Financial</TabsTrigger>
+          <TabsTrigger value="commission" className="data-[state=active]:bg-[hsl(var(--professional-blue))] data-[state=active]:text-white">Commission</TabsTrigger>
         </TabsList>
         <TabsContent value="sales">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sales Report</CardTitle>
+          <Card className="card-professional">
+            <CardHeader className="pb-6">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[hsl(var(--professional-blue))]/10 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-[hsl(var(--professional-blue))]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-[hsl(var(--foreground))]">Sales Report</h3>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Revenue and sales performance</p>
+                </div>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {salesReportMutation.isPending ? (
                 <div className="flex items-center justify-center h-64">
-                  <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                  <div className="text-center">
+                    <Loader2 className="w-12 h-12 animate-spin text-[hsl(var(--professional-blue))] mx-auto mb-4" />
+                    <p className="text-[hsl(var(--muted-foreground))]">Generating sales report...</p>
+                  </div>
                 </div>
               ) : salesReport ? (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <Card>
-                      <CardHeader><CardTitle>Total Sales</CardTitle></CardHeader>
-                      <CardContent><p className="text-2xl font-bold">{formatCurrency(salesReport.totalSales)}</p></CardContent>
+                    <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30">
+                      <CardHeader className="pb-3"><CardTitle className="text-lg text-[hsl(var(--foreground))]">Total Sales</CardTitle></CardHeader>
+                      <CardContent><p className="text-3xl font-bold text-[hsl(var(--professional-green))]">{formatCurrency(salesReport.totalSales)}</p></CardContent>
                     </Card>
-                    <Card>
-                      <CardHeader><CardTitle>Number of Sales</CardTitle></CardHeader>
-                      <CardContent><p className="text-2xl font-bold">{salesReport.numberOfSales}</p></CardContent>
+                    <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30">
+                      <CardHeader className="pb-3"><CardTitle className="text-lg text-[hsl(var(--foreground))]">Number of Sales</CardTitle></CardHeader>
+                      <CardContent><p className="text-3xl font-bold text-[hsl(var(--professional-blue))]">{salesReport.numberOfSales}</p></CardContent>
                     </Card>
                   </div>
-                  <Card>
-                    <CardHeader><CardTitle>Sales by Lot</CardTitle></CardHeader>
+                  <Card className="border border-[hsl(var(--border))]">
+                    <CardHeader className="pb-3"><CardTitle className="text-lg text-[hsl(var(--foreground))]">Sales by Lot</CardTitle></CardHeader>
                     <CardContent>
                       <SalesReportChart data={salesReportChartData} />
                     </CardContent>
                   </Card>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg">
-                  <div className="text-center text-muted-foreground">
+                <div className="flex items-center justify-center h-64 border-2 border-dashed border-[hsl(var(--border))] rounded-lg">
+                  <div className="text-center text-[hsl(var(--muted-foreground))]">
                     <FileText className="w-12 h-12 mx-auto mb-4" />
-                    <p>Your generated sales report will appear here.</p>
-                    <p>Select a date range and click "Generate Report" to get started.</p>
+                    <p className="font-medium mb-2">Your generated sales report will appear here.</p>
+                    <p className="text-sm">Select a date range and click "Generate Report" to get started.</p>
                   </div>
                 </div>
               )}
@@ -334,34 +346,45 @@ export default function Reports() {
           </Card>
         </TabsContent>
         <TabsContent value="leads">
-          <Card>
-            <CardHeader>
-              <CardTitle>Lead Source Report</CardTitle>
+          <Card className="card-professional">
+            <CardHeader className="pb-6">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[hsl(var(--professional-green))]/10 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-[hsl(var(--professional-green))]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-[hsl(var(--foreground))]">Lead Source Report</h3>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Track lead generation sources</p>
+                </div>
+              </CardTitle>
             </CardHeader>
             <CardContent>
             {leadSourceReportMutation.isPending ? (
                 <div className="flex items-center justify-center h-64">
-                  <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                  <div className="text-center">
+                    <Loader2 className="w-12 h-12 animate-spin text-[hsl(var(--professional-green))] mx-auto mb-4" />
+                    <p className="text-[hsl(var(--muted-foreground))]">Generating lead source report...</p>
+                  </div>
                 </div>
               ) : leadSourceReport ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader><CardTitle>Total Leads</CardTitle></CardHeader>
-                    <CardContent><p className="text-2xl font-bold">{leadSourceReport.totalLeads}</p></CardContent>
+                <div className="grid grid-cols-2 gap-6">
+                  <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30">
+                    <CardHeader className="pb-3"><CardTitle className="text-lg text-[hsl(var(--foreground))]">Total Leads</CardTitle></CardHeader>
+                    <CardContent><p className="text-3xl font-bold text-[hsl(var(--professional-green))]">{leadSourceReport.totalLeads}</p></CardContent>
                   </Card>
-                  <Card>
-                    <CardHeader><CardTitle>Leads by Source</CardTitle></CardHeader>
+                  <Card className="border border-[hsl(var(--border))]">
+                    <CardHeader className="pb-3"><CardTitle className="text-lg text-[hsl(var(--foreground))]">Leads by Source</CardTitle></CardHeader>
                     <CardContent>
                       <LeadSourceChart data={leadSourceChartData} />
                     </CardContent>
                   </Card>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg">
-                  <div className="text-center text-muted-foreground">
+                <div className="flex items-center justify-center h-64 border-2 border-dashed border-[hsl(var(--border))] rounded-lg">
+                  <div className="text-center text-[hsl(var(--muted-foreground))]">
                     <FileText className="w-12 h-12 mx-auto mb-4" />
-                    <p>Your generated lead source report will appear here.</p>
-                    <p>Select a date range and click "Generate Report" to get started.</p>
+                    <p className="font-medium mb-2">Your generated lead source report will appear here.</p>
+                    <p className="text-sm">Select a date range and click "Generate Report" to get started.</p>
                   </div>
                 </div>
               )}

@@ -62,6 +62,14 @@ export default {
           gold: "hsl(var(--real-estate-gold))",
           neutral: "hsl(var(--real-estate-neutral))",
         },
+        "professional": {
+          blue: "hsl(var(--professional-blue))",
+          "blue-dark": "hsl(var(--professional-blue-dark))",
+          green: "hsl(var(--professional-green))",
+          red: "hsl(var(--professional-red))",
+          gray: "hsl(var(--professional-gray))",
+          "gray-text": "hsl(var(--professional-gray-text))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -87,6 +95,8 @@ export default {
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
+        button: "var(--shadow-button)",
+        "button-hover": "var(--shadow-button-hover)",
       },
       keyframes: {
         "accordion-down": {

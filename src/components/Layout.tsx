@@ -20,14 +20,16 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-gradient-subtle">
+      <div className="min-h-screen flex w-full" style={{ background: 'var(--gradient-background)' }}>
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <TopNavbar>
             <NotificationBell />
           </TopNavbar>
-          <main className="flex-1 p-6">
-            {children}
+          <main className="flex-1 p-6 bg-[hsl(var(--background))]">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
           </main>
         </div>
       </div>

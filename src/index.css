@@ -2,86 +2,108 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Real Estate CRM Design System - Professional, clean, modern */
+/* Professional CRM Design System - Modern, clean, high-contrast */
 
 @layer base {
   :root {
-    /* Base colors - Neutral foundation */
-    --background: 0 0% 99%;
-    --foreground: 222 12% 12%;
+    /* Professional Background - Light gray instead of white */
+    --background: 220 13% 98%; /* #F9FAFB equivalent */
+    --foreground: 220 13% 7%; /* #111827 equivalent */
 
-    /* Card system */
-    --card: 0 0% 100%;
-    --card-foreground: 222 12% 12%;
+    /* Card system - White cards with shadows */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 220 13% 7%; /* #111827 */
 
     /* Popover system */
     --popover: 0 0% 100%;
-    --popover-foreground: 222 12% 12%;
+    --popover-foreground: 220 13% 7%;
 
-    /* Primary - Deep Blue for real estate professionalism */
-    --primary: 220 91% 27%;
-    --primary-foreground: 0 0% 98%;
-    --primary-hover: 220 91% 22%;
+    /* Primary - Professional Blue (#2563EB) */
+    --primary: 217 91% 60%; /* #2563EB */
+    --primary-foreground: 0 0% 100%; /* white */
+    --primary-hover: 217 91% 55%; /* #1D4ED8 */
 
-    /* Secondary - Light gray for subtle elements */
-    --secondary: 220 13% 95%;
-    --secondary-foreground: 222 12% 12%;
+    /* Secondary - Light elements */
+    --secondary: 220 13% 95%; /* #F3F4F6 */
+    --secondary-foreground: 220 13% 7%;
 
     /* Muted elements */
-    --muted: 220 13% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 220 13% 96%; /* #F9FAFB */
+    --muted-foreground: 220 9% 46%; /* #6B7280 */
 
-    /* Accent - Gold for highlights and CTAs */
-    --accent: 45 93% 47%;
+    /* Accent - Success Green (#16A34A) */
+    --accent: 142 76% 36%; /* #16A34A */
     --accent-foreground: 0 0% 100%;
-    --accent-hover: 45 93% 42%;
+    --accent-hover: 142 76% 31%;
 
     /* Status colors */
-    --success: 142 76% 36%;
+    --success: 142 76% 36%; /* #16A34A */
     --success-foreground: 0 0% 100%;
     --warning: 32 95% 44%;
     --warning-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --destructive: 0 84% 60%; /* #DC2626 */
     --destructive-foreground: 0 0% 100%;
 
-    /* UI Elements */
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 220 91% 27%;
+    /* UI Elements - Professional borders and inputs */
+    --border: 220 13% 82%; /* #D1D5DB */
+    --input: 220 13% 82%; /* #D1D5DB */
+    --ring: 217 91% 60%; /* #2563EB */
 
     /* Layout */
-    --radius: 0.5rem;
+    --radius: 8px; /* 8px border radius */
 
-    /* Real Estate specific colors */
-    --real-estate-blue: 220 91% 27%;
-    --real-estate-gold: 45 93% 47%;
-    --real-estate-neutral: 220 13% 95%;
+    /* Professional color palette */
+    --professional-blue: 217 91% 60%; /* #2563EB */
+    --professional-blue-dark: 217 91% 55%; /* #1D4ED8 */
+    --professional-green: 142 76% 36%; /* #16A34A */
+    --professional-red: 0 84% 60%; /* #DC2626 */
+    --professional-gray: 220 13% 98%; /* #F9FAFB */
+    --professional-gray-text: 220 9% 46%; /* #6B7280 */
     
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(220 91% 27%), hsl(220 91% 35%));
-    --gradient-accent: linear-gradient(135deg, hsl(45 93% 47%), hsl(45 93% 55%));
+    /* Enhanced gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 65%));
+    --gradient-accent: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 41%));
     --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 13% 98%));
+    --gradient-background: linear-gradient(180deg, hsl(220 13% 98%), hsl(220 13% 96%));
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(220 43% 11% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(220 43% 11% / 0.1), 0 2px 4px -1px hsl(220 43% 11% / 0.06);
-    --shadow-lg: 0 10px 15px -3px hsl(220 43% 11% / 0.1), 0 4px 6px -2px hsl(220 43% 11% / 0.05);
+    /* Professional shadows - more prominent */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.08); /* Card shadow */
+    --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1); /* Modal/prominent element shadow */
+    --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    --shadow-button-hover: 0 2px 4px rgba(0, 0, 0, 0.16), 0 2px 4px rgba(0, 0, 0, 0.32);
 
-    --sidebar-background: 0 0% 98%;
+    /* Sidebar - Professional styling */
+    --sidebar-background: 0 0% 100%; /* White for regular sidebar */
+    --sidebar-foreground: 220 13% 7%;
+    --sidebar-primary: 217 91% 60%; /* Professional blue */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 13% 96%;
+    --sidebar-accent-foreground: 220 13% 7%;
+    --sidebar-border: 220 13% 82%;
+    --sidebar-ring: 217 91% 60%;
+    
+    /* Admin Sidebar - Dark theme for admin console */
+    --admin-sidebar-background: 220 13% 12%; /* #1F2937 */
+    --admin-sidebar-foreground: 220 13% 98%; /* #F9FAFB */
+    --admin-sidebar-primary: 217 91% 60%; /* #2563EB */
+    --admin-sidebar-primary-foreground: 0 0% 100%;
+    --admin-sidebar-accent: 220 13% 18%;
+    --admin-sidebar-accent-foreground: 220 13% 98%;
+    --admin-sidebar-border: 220 13% 20%;
+    --admin-sidebar-ring: 217 91% 60%;
+  }
 
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+  /* Admin theme for admin pages */
+  .admin-theme {
+    --sidebar-background: var(--admin-sidebar-background);
+    --sidebar-foreground: var(--admin-sidebar-foreground);
+    --sidebar-primary: var(--admin-sidebar-primary);
+    --sidebar-primary-foreground: var(--admin-sidebar-primary-foreground);
+    --sidebar-accent: var(--admin-sidebar-accent);
+    --sidebar-accent-foreground: var(--admin-sidebar-accent-foreground);
+    --sidebar-border: var(--admin-sidebar-border);
+    --sidebar-ring: var(--admin-sidebar-ring);
   }
 
   .dark {
@@ -130,5 +152,82 @@
 
   body {
     @apply bg-background text-foreground;
+    background: var(--gradient-background);
+  }
+}
+
+/* Professional Button Enhancements */
+@layer components {
+  .btn-primary {
+    @apply bg-[hsl(var(--professional-blue))] text-white hover:bg-[hsl(var(--professional-blue-dark))];
+    box-shadow: var(--shadow-button);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .btn-primary:hover {
+    box-shadow: var(--shadow-button-hover);
+    transform: translateY(-1px);
+  }
+  
+  .btn-secondary {
+    @apply border border-[hsl(var(--professional-blue))] bg-transparent text-[hsl(var(--professional-blue))] hover:bg-[hsl(var(--professional-blue))] hover:text-white;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .btn-success {
+    @apply bg-[hsl(var(--professional-green))] text-white hover:opacity-90;
+    box-shadow: var(--shadow-button);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .btn-danger {
+    @apply bg-[hsl(var(--professional-red))] text-white hover:opacity-90;
+    box-shadow: var(--shadow-button);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  /* Professional Card Styling */
+  .card-professional {
+    @apply bg-white rounded-lg;
+    box-shadow: var(--shadow-md);
+    border: 1px solid hsl(var(--border));
+  }
+  
+  .card-professional:hover {
+    box-shadow: var(--shadow-lg);
+    transition: box-shadow 0.2s ease-in-out;
+  }
+  
+  /* Input Focus Enhancement */
+  .input-professional {
+    @apply border-[hsl(var(--input))] focus:border-[hsl(var(--professional-blue))];
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .input-professional:focus {
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    outline: none;
+  }
+  
+  /* Admin Console Styling */
+  .admin-console {
+    @apply min-h-screen;
+    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
+  }
+  
+  .admin-card {
+    @apply bg-white rounded-lg p-6;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid hsl(var(--border));
+  }
+  
+  .admin-header {
+    @apply text-2xl font-bold text-[hsl(var(--foreground))] mb-2;
+  }
+  
+  .admin-subheader {
+    @apply text-[hsl(var(--muted-foreground))] mb-6;
   }
 }

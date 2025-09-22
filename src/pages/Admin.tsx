@@ -10,7 +10,7 @@ import AppointmentTemplateManager from "@/components/AppointmentTemplateManager"
 import TaskAssignment from "@/components/TaskAssignment";
 import TaskTemplateManager from "@/components/TaskTemplateManager";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Download, FileSpreadsheet, AlertTriangle, Database, Users, Crown, User } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, AlertTriangle, Database, Users, Crown, User, Calendar, CheckCircle } from "lucide-react";
 import { exportData, importData } from "@/services/storage";
 import { createLead } from "@/services/leads";
 import { createClient } from "@/services/clients";
@@ -195,89 +195,170 @@ export default function Admin() {
   };
 
   return (
-    <div className="min-h-screen p-4">
-      <Tabs defaultValue="user-management">
-        <TabsList>
-          <TabsTrigger value="user-management">User Management</TabsTrigger>
-          <TabsTrigger value="data-management">Data Import/Export</TabsTrigger>
-          <TabsTrigger value="document-templates">Document Templates</TabsTrigger>
-          <TabsTrigger value="appointment-templates">Appointment Templates</TabsTrigger>
-          <TabsTrigger value="task-assignment">Task Assignment</TabsTrigger>
-          <TabsTrigger value="task-templates">Task Templates</TabsTrigger>
-        </TabsList>
-        <TabsContent value="user-management">
-          <div className="space-y-6">
-            <Card className="w-full max-w-sm">
-              <CardHeader>
-                <CardTitle>Create New User</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                </div>
-                {error && <p className="text-sm text-destructive">{error}</p>}
-                {success && <p className="text-sm text-green-500">{success}</p>}
-                <Button className="w-full" onClick={submit} disabled={loading}>
-                  {loading ? "Creating user..." : "Create User"}
-                </Button>
-              </CardContent>
-            </Card>
+    <div className="admin-console p-6">
+      {/* Admin Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-[hsl(var(--professional-blue))] rounded-lg flex items-center justify-center">
+            <Crown className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="admin-header">Admin Control Panel</h1>
+            <p className="admin-subheader">Manage users, data, and system configurations</p>
+          </div>
+        </div>
+      </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Current Users
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {profilesLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading users...</p>
-                ) : profiles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No users found.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {profiles.map((profile) => (
-                      <div key={profile.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="space-y-1">
-                          <p className="font-medium">{profile.email}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Created: {formatDate(profile.created_at)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getRoleBadge(profile.role)}
-                        </div>
-                      </div>
-                    ))}
+      <Tabs defaultValue="user-management" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6 bg-white shadow-sm rounded-lg p-1">
+          <TabsTrigger value="user-management" className="flex items-center gap-2"><Users className="w-4 h-4" />Users</TabsTrigger>
+          <TabsTrigger value="data-management" className="flex items-center gap-2"><Database className="w-4 h-4" />Data</TabsTrigger>
+          <TabsTrigger value="document-templates" className="flex items-center gap-2"><FileSpreadsheet className="w-4 h-4" />Docs</TabsTrigger>
+          <TabsTrigger value="appointment-templates" className="flex items-center gap-2"><Calendar className="w-4 h-4" />Appointments</TabsTrigger>
+          <TabsTrigger value="task-assignment" className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" />Tasks</TabsTrigger>
+          <TabsTrigger value="task-templates" className="flex items-center gap-2"><FileSpreadsheet className="w-4 h-4" />Templates</TabsTrigger>
+        </TabsList>
+        <TabsContent value="user-management" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Create User Card - More Prominent */}
+            <div className="lg:col-span-1">
+              <Card className="admin-card">
+                <CardHeader className="text-center pb-4">
+                  <div className="w-16 h-16 bg-[hsl(var(--professional-blue))] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <User className="w-8 h-8 text-white" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <CardTitle className="text-xl font-bold">Create New User</CardTitle>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Add a new agent to the system</p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={email} 
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="input-professional"
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="input-professional"
+                      placeholder="Enter secure password"
+                    />
+                  </div>
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  {success && (
+                    <Alert>
+                      <CheckCircle className="h-4 w-4" />
+                      <AlertDescription className="text-[hsl(var(--professional-green))]">{success}</AlertDescription>
+                    </Alert>
+                  )}
+                  <Button 
+                    className="w-full btn-primary" 
+                    onClick={submit} 
+                    disabled={loading}
+                    size="lg"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Creating User...
+                      </>
+                    ) : (
+                      <>
+                        <User className="w-4 h-4" />
+                        Create User
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* User List - Enhanced */}
+            <div className="lg:col-span-2">
+              <Card className="admin-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    <Users className="w-6 h-6 text-[hsl(var(--professional-blue))]" />
+                    <div>
+                      <h3 className="text-xl font-bold">Current Users</h3>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Manage system users and their roles</p>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {profilesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-8 h-8 border-4 border-[hsl(var(--professional-blue))] border-t-transparent rounded-full animate-spin" />
+                      <span className="ml-3 text-[hsl(var(--muted-foreground))]">Loading users...</span>
+                    </div>
+                  ) : profiles.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-[hsl(var(--muted-foreground))] mx-auto mb-4" />
+                      <p className="text-[hsl(var(--muted-foreground))]">No users found in the system.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {profiles.map((profile) => (
+                        <div key={profile.id} className="flex items-center justify-between p-4 border border-[hsl(var(--border))] rounded-lg hover:shadow-md transition-shadow">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[hsl(var(--professional-blue))]/10 rounded-full flex items-center justify-center">
+                              {profile.role === 'admin' ? <Crown className="w-5 h-5 text-[hsl(var(--professional-blue))]" /> : <User className="w-5 h-5 text-[hsl(var(--muted-foreground))]" />}
+                            </div>
+                            <div>
+                              <p className="font-medium text-[hsl(var(--foreground))]">{profile.email}</p>
+                              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                                Created: {formatDate(profile.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getRoleBadge(profile.role)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
-        <TabsContent value="data-management">
-          <div className="space-y-6">
-            <Card>
+        <TabsContent value="data-management" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Data Export */}
+            <Card className="admin-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="w-5 h-5" />
-                  Data Export & Backup
+                <CardTitle className="flex items-center gap-3">
+                  <Download className="w-6 h-6 text-[hsl(var(--professional-green))]" />
+                  <div>
+                    <h3 className="text-lg font-bold">Data Export & Backup</h3>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Export all CRM data as backup</p>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">
                   Export all CRM data as a JSON backup file. This includes leads, clients, lots, payments, appointments, and tasks.
                 </p>
                 <Button 
                   onClick={handleExportData} 
                   disabled={exporting}
-                  className="gap-2"
+                  className="w-full btn-success gap-2"
+                  size="lg"
                 >
                   <Download className="w-4 h-4" />
                   {exporting ? "Exporting..." : "Export All Data"}
@@ -285,15 +366,19 @@ export default function Admin() {
               </CardContent>
             </Card>
 
-            <Card>
+            {/* Data Import */}
+            <Card className="admin-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5" />
-                  Data Import & Restore
+                <CardTitle className="flex items-center gap-3">
+                  <Upload className="w-6 h-6 text-[hsl(var(--professional-blue))]" />
+                  <div>
+                    <h3 className="text-lg font-bold">Data Import & Restore</h3>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Import backup files</p>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Alert>
+                <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
                     <strong>Warning:</strong> Importing data will overwrite existing data. Make sure to backup your current data first.
@@ -302,18 +387,20 @@ export default function Admin() {
                 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="backup-import">Import JSON Backup</Label>
+                    <Label htmlFor="backup-import" className="text-sm font-medium">Import JSON Backup</Label>
                     <div className="flex gap-2 mt-2">
                       <Input 
                         id="backup-import"
                         type="file" 
                         accept=".json"
                         onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                        className="input-professional"
                       />
                       <Button 
                         onClick={handleImportData} 
                         disabled={!importFile || importing}
                         variant="outline"
+                        className="btn-secondary"
                       >
                         {importing ? "Importing..." : "Import"}
                       </Button>
@@ -322,23 +409,29 @@ export default function Admin() {
                 </div>
               </CardContent>
             </Card>
+          </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5" />
-                  CSV Bulk Import
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Import data from CSV files. Supported formats: Leads, Clients, and Lots.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Import Leads CSV</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
+          {/* CSV Bulk Import */}
+          <Card className="admin-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <FileSpreadsheet className="w-6 h-6 text-[hsl(var(--professional-blue))]" />
+                <div>
+                  <h3 className="text-lg font-bold">CSV Bulk Import</h3>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))] font-normal">Import data from CSV files</p>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Import data from CSV files. Supported formats: Leads, Clients, and Lots.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                  <div className="p-4 bg-[hsl(var(--muted))] rounded-lg">
+                    <h4 className="font-medium text-[hsl(var(--foreground))] mb-2">Import Leads CSV</h4>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] mb-3">
                       Required columns: name, email, phone, source, status, notes
                     </p>
                     <Input 
@@ -349,12 +442,15 @@ export default function Admin() {
                         if (file) handleCSVImport(file, 'leads');
                       }}
                       disabled={importing}
+                      className="input-professional"
                     />
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Import Clients CSV</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="p-4 bg-[hsl(var(--muted))] rounded-lg">
+                    <h4 className="font-medium text-[hsl(var(--foreground))] mb-2">Import Clients CSV</h4>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] mb-3">
                       Required columns: name, email, phone, address
                     </p>
                     <Input 
@@ -365,12 +461,15 @@ export default function Admin() {
                         if (file) handleCSVImport(file, 'clients');
                       }}
                       disabled={importing}
+                      className="input-professional"
                     />
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Import Lots CSV</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="p-4 bg-[hsl(var(--muted))] rounded-lg">
+                    <h4 className="font-medium text-[hsl(var(--foreground))] mb-2">Import Lots CSV</h4>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] mb-3">
                       Required columns: block_number, lot_number, size, price, location, description, status
                     </p>
                     <Input 
@@ -381,12 +480,13 @@ export default function Admin() {
                         if (file) handleCSVImport(file, 'lots');
                       }}
                       disabled={importing}
+                      className="input-professional"
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="document-templates">
           <DocumentTemplates />
