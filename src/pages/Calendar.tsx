@@ -37,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -120,10 +121,14 @@ export default function Calendar() {
 
   const createTaskMutation = useMutation({
     mutationFn: createTask,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Task created successfully:', data);
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       resetTask();
       setTaskDialogOpen(false);
+    },
+    onError: (error) => {
+      console.error('Task creation failed:', error);
     },
   });
 
@@ -155,6 +160,7 @@ export default function Calendar() {
   };
 
   const handleCreateTaskSubmit = (values: CreateTask) => {
+    console.log('Submitting task:', values);
     createTaskMutation.mutate(values);
   };
 
@@ -180,7 +186,14 @@ export default function Calendar() {
   }, [appointmentsData, selectedDate]);
 
   const todayTasks = useMemo(() => {
-    return (tasksData || []).filter(task => task.due_date === selectedDate);
+    console.log('All tasks data:', tasksData);
+    console.log('Selected date:', selectedDate);
+    const filtered = (tasksData || []).filter(task => {
+      console.log('Task due_date:', task.due_date, 'Selected date:', selectedDate, 'Match:', task.due_date === selectedDate);
+      return task.due_date === selectedDate;
+    });
+    console.log('Filtered tasks:', filtered);
+    return filtered;
   }, [tasksData, selectedDate]);
 
   const upcomingAppointments = useMemo(() => {
@@ -256,7 +269,10 @@ export default function Calendar() {
               <Button variant="outline" className="gap-2"><Plus className="w-4 h-4" />Add Task</Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
-              <DialogHeader><DialogTitle>Add New Task</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Add New Task</DialogTitle>
+                <DialogDescription>Create a new task with title, description, priority, and due date.</DialogDescription>
+              </DialogHeader>
               <form onSubmit={handleTaskSubmit(handleCreateTaskSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="taskTitle">Task Title</Label>
@@ -269,7 +285,7 @@ export default function Calendar() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taskPriority">Priority</Label>
-                  <Select onValueChange={(value) => setTaskValue("priority", value)}>
+                  <Select onValueChange={(value) => setTaskValue("priority", value as "low" | "medium" | "high")}>
                     <SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="high">High</SelectItem>
@@ -277,7 +293,7 @@ export default function Calendar() {
                       <SelectItem value="low">Low</SelectItem>
                     </SelectContent>
                   </Select>
-                  {taskErrors.priority && <p className-="text-sm text-red-500">{taskErrors.priority.message}</p>}
+                  {taskErrors.priority && <p className="text-sm text-red-500">{taskErrors.priority.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taskDue">Due Date</Label>
@@ -401,18 +417,92 @@ export default function Calendar() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><CalendarIcon className="w-5 h-5" />Appointments ({todayAppointments.length})</CardTitle></CardHeader>
-          <CardContent><div className="space-y-4">{todayAppointments.length === 0 ? <p className="text-muted-foreground text-center py-4">No appointments scheduled</p> : todayAppointments.map((appointment) => (<div key={appointment.id} className="border border-border rounded-lg p-4 space-y-3"><div className="flex items-center justify-between"><h4 className="font-medium">{appointment.title}</h4>{getStatusBadge(appointment.status)}</div><div className="space-y-2 text-sm"><div className="flex items-center gap-2"><User className="w-4 h-4 text-muted-foreground" /><span>{(appointment.clients as ClientEntity)?.name || "-"}</span></div><div className="flex items-center gap-2"><Clock className="w-4 h-4 text-muted-foreground" /><span>{appointment.scheduled_time} ({appointment.duration}min)</span></div><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-muted-foreground" /><span>{appointment.location}</span></div></div>{appointment.notes && (<p className="text-sm text-muted-foreground bg-muted p-2 rounded">{appointment.notes}</p>)}<div className="flex gap-2"><Button variant="outline" size="sm" className="flex-1"><Edit className="w-4 h-4 mr-2"/>Edit</Button><Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedAppointment(appointment); setReminderDialogOpen(true);}}><Bell className="w-4 h-4 mr-2"/>Set Reminder</Button><Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteAppointmentMutation.mutate(appointment.id); }}><Trash2 className="w-4 h-4 mr-2"/>Delete</Button></div></div>))}</div></CardContent>
+          <CardContent>
+            <div className="space-y-4">
+              {todayAppointments.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No appointments scheduled</p>
+              ) : (
+                todayAppointments.map((appointment) => (
+                  <div key={appointment.id} className="border border-border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">{appointment.title}</h4>
+                      {getStatusBadge(appointment.status)}
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <span>{appointment.client_id || "-"}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span>{appointment.scheduled_time} ({appointment.duration}min)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <span>{appointment.location}</span>
+                      </div>
+                    </div>
+                    {appointment.notes && (
+                      <p className="text-sm text-muted-foreground bg-muted p-2 rounded">{appointment.notes}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1">
+                        <Edit className="w-4 h-4 mr-2"/>Edit
+                      </Button>
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => { 
+                        setSelectedAppointment(appointment); 
+                        setReminderDialogOpen(true);
+                      }}>
+                        <Bell className="w-4 h-4 mr-2"/>Set Reminder
+                      </Button>
+                      <Button variant="destructive" size="sm" className="flex-1" onClick={() => { 
+                        if (confirm("Are you sure?")) deleteAppointmentMutation.mutate(appointment.id); 
+                      }}>
+                        <Trash2 className="w-4 h-4 mr-2"/>Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="w-5 h-5" />Tasks ({todayTasks.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="w-5 h-5" />Tasks ({todayTasks.length}) - All Tasks: {(tasksData || []).length}</CardTitle></CardHeader>
           <CardContent><div className="space-y-4">{todayTasks.length === 0 ? <p className="text-muted-foreground text-center py-4">No tasks due</p> : todayTasks.map((task) => (<div key={task.id} className="border border-border rounded-lg p-4 space-y-3"><div className="flex items-center justify-between"><h4 className="font-medium">{task.title}</h4><div className="flex gap-2">{getTaskPriorityBadge(task.priority)}{getTaskStatusBadge(task.status)}</div></div><p className="text-sm text-muted-foreground">{task.description}</p><div className="flex items-center gap-2 text-sm"><User className="w-4 h-4 text-muted-foreground" /><span>Assigned to: {(task.profiles as ProfileEntity)?.full_name || "-"}</span></div><div className="flex gap-2"><Button variant="outline" size="sm" className="flex-1"><Edit className="w-4 h-4 mr-2"/>Edit</Button><Button variant="destructive" size="sm" className="flex-1" onClick={() => { if (confirm("Are you sure?")) deleteTaskMutation.mutate(task.id); }}><Trash2 className="w-4 h-4 mr-2"/>Delete</Button></div></div>))}</div></CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader><CardTitle>Upcoming Appointments</CardTitle></CardHeader>
-        <CardContent><div className="space-y-3">{upcomingAppointments.length === 0 ? <p className="text-muted-foreground text-center py-4">No upcoming appointments</p> : upcomingAppointments.slice(0, 5).map((appointment) => (<div key={appointment.id} className="flex items-center justify-between p-3 border border-border rounded-lg"><div className="flex items-center gap-3">{getTypeIcon(appointment.type)}<div><h4 className="font-medium">{appointment.title}</h4><p className="text-sm text-muted-foreground">{(appointment.clients as ClientEntity)?.name || "-"} • {appointment.scheduled_date} at {appointment.scheduled_time}</p></div></div><div className="flex items-center gap-2">{getStatusBadge(appointment.status)}<Button variant="ghost" size="sm">View</Button></div></div>))}</div></CardContent>
+        <CardContent>
+          <div className="space-y-3">
+            {upcomingAppointments.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No upcoming appointments</p>
+            ) : (
+              upcomingAppointments.slice(0, 5).map((appointment) => (
+                <div key={appointment.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {getTypeIcon(appointment.type)}
+                    <div>
+                      <h4 className="font-medium">{appointment.title}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {appointment.client_id || "-"} • {appointment.scheduled_date} at {appointment.scheduled_time}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(appointment.status)}
+                    <Button variant="ghost" size="sm">View</Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+
       </Card>
     </div>
   );
