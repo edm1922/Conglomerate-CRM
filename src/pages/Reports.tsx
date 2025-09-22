@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/DateRangePicker";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2, FileSpreadsheet } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateSalesReport, type SalesReportData, generateLeadSourceReport, type LeadSourceReportData, generatePaymentAnalyticsReport, type PaymentAnalyticsReportData, generateFinancialSummaryReport, type FinancialSummaryReportData, generateCommissionReport, type CommissionReportData } from "@/services/reports";
 import { generatePricingReport, type PricingReportData } from "@/services";
@@ -152,6 +152,85 @@ export default function Reports() {
     }).format(amount);
   };
 
+  const exportToCSV = (data: any[], filename: string) => {
+    if (!data || data.length === 0) {
+      toast({ title: "Error", description: "No data to export", variant: "destructive" });
+      return;
+    }
+
+    const headers = Object.keys(data[0]);
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          // Handle values that might contain commas by wrapping in quotes
+          if (typeof value === 'string' && value.includes(',')) {
+            return `"${value}"`;
+          }
+          return value;
+        }).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.csv`;
+    link.click();
+    
+    toast({ title: "Success", description: `${filename}.csv exported successfully` });
+  };
+
+  const handleExportReport = () => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    if (activeTab === 'sales' && salesReport) {
+      const exportData = salesReport.payments.map(payment => ({
+        'Payment ID': payment.id,
+        'Amount': payment.amount,
+        'Payment Method': payment.payment_method,
+        'Status': payment.status,
+        'Date': new Date(payment.created_at).toLocaleDateString(),
+        'Client': payment.client_id,
+        'Lot': payment.lot_id
+      }));
+      exportToCSV(exportData, `sales-report-${currentDate}`);
+    } else if (activeTab === 'leads' && leadSourceReport) {
+      const exportData = Object.entries(leadSourceReport.leadsBySource).map(([source, count]) => ({
+        'Lead Source': source,
+        'Count': count
+      }));
+      exportToCSV(exportData, `lead-source-report-${currentDate}`);
+    } else if (activeTab === 'pricing' && pricingReport) {
+      const exportData = Object.entries(pricingReport.priceDistribution).map(([range, count]) => ({
+        'Price Range': range,
+        'Count': count
+      }));
+      exportToCSV(exportData, `pricing-report-${currentDate}`);
+    } else if (activeTab === 'payments' && paymentAnalyticsReport) {
+      const exportData = Object.entries(paymentAnalyticsReport.paymentsByMethod).map(([method, amount]) => ({
+        'Payment Method': method,
+        'Total Amount': amount
+      }));
+      exportToCSV(exportData, `payment-analytics-${currentDate}`);
+    } else if (activeTab === 'financial-summary' && financialSummaryReport) {
+      const exportData = [{
+        'Total Revenue': financialSummaryReport.totalRevenue,
+        'Number of Transactions': financialSummaryReport.numberOfTransactions
+      }];
+      exportToCSV(exportData, `financial-summary-${currentDate}`);
+    } else if (activeTab === 'commission' && commissionReport) {
+      const exportData = Object.entries(commissionReport.commissionByAgent).map(([agent, commission]) => ({
+        'Agent': agent,
+        'Commission': commission
+      }));
+      exportToCSV(exportData, `commission-report-${currentDate}`);
+    } else {
+      toast({ title: "Error", description: "No report data to export", variant: "destructive" });
+    }
+  };
+
   const isGenerating = salesReportMutation.isPending || leadSourceReportMutation.isPending || pricingReportMutation.isPending || paymentAnalyticsReportMutation.isPending || financialSummaryReportMutation.isPending || commissionReportMutation.isPending;
 
   const leadSourceChartData = useMemo(() => {
@@ -191,6 +270,15 @@ export default function Reports() {
           <Button className="gap-2" disabled={isGenerating} onClick={handleGenerateReport}>
             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             Generate Report
+          </Button>
+          <Button 
+            variant="outline" 
+            className="gap-2" 
+            onClick={handleExportReport}
+            disabled={!salesReport && !leadSourceReport && !pricingReport && !paymentAnalyticsReport && !financialSummaryReport && !commissionReport}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Export CSV
           </Button>
         </div>
       </div>
