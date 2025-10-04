@@ -97,6 +97,10 @@ This application includes a privacy policy that explains how user data is collec
 
 This application includes terms of service that govern your access to and use of our customer relationship management application. You can view the full terms of service at `/terms-of-service` in the application or by accessing the [terms-of-service.md](public/terms-of-service.md) file directly.
 
+## Data Deletion
+
+This application includes data deletion instructions that explain how users can request the deletion of their personal data. You can view the full data deletion instructions at `/data-deletion` in the application or by accessing the [data-deletion-instructions.md](public/data-deletion-instructions.md) file directly.
+
 ## Security Features
 
 - Environment-based configuration

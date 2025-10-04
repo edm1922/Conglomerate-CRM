@@ -47,6 +47,9 @@ export function Layout({ children }: LayoutProps) {
               <Link to="/terms-of-service" className="text-sm text-gray-600 hover:text-gray-900">
                 Terms of Service
               </Link>
+              <Link to="/data-deletion" className="text-sm text-gray-600 hover:text-gray-900">
+                Data Deletion
+              </Link>
             </div>
           </div>
         </footer>

@@ -17,6 +17,7 @@ import Admin from "./pages/Admin";
 import AppointmentTemplates from "./pages/appointment-templates";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import DataDeletion from "./pages/DataDeletion";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isLoading } = useSessionContext();
@@ -156,6 +157,14 @@ export const router = createBrowserRouter([
     element: (
       <Layout>
         <TermsOfService />
+      </Layout>
+    ),
+  },
+  {
+    path: "/data-deletion",
+    element: (
+      <Layout>
+        <DataDeletion />
       </Layout>
     ),
   },

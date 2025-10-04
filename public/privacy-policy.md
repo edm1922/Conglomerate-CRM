@@ -65,6 +65,10 @@ However, no method of transmission over the Internet or method of electronic sto
 
 We will retain your information for as long as necessary to fulfill the purposes outlined in this Privacy Policy, unless a longer retention period is required or permitted by law.
 
+## Data Deletion
+
+If you wish to delete your personal data from our systems, please refer to our [Data Deletion Instructions](/data-deletion) for detailed information on how to submit a data deletion request. We will process your request in accordance with applicable data protection laws.
+
 ## Your Rights
 
 Depending on your location, you may have certain rights regarding your personal information:
