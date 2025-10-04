@@ -80,7 +80,8 @@ create table if not exists public.lots (
   date_reserved timestamptz,
   date_sold timestamptz,
   created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  unique(block_number, lot_number)
 );
 
 -- Payments
@@ -182,7 +183,7 @@ create policy "communications_read_all" on public.communications for select usin
 create policy "communications_write" on public.communications for insert with check (auth.role() = 'authenticated');
 
 create policy "reminders_read_all" on public.reminders for select using (auth.role() = 'authenticated');
-create policy "reminders_write" on public.reminders for insert with check (.auth.role() = 'authenticated');
+create policy "reminders_write" on public.reminders for insert with check (auth.role() = 'authenticated');
 create policy "reminders_update" on public.reminders for update using (auth.role() = 'authenticated');
 create policy "reminders_delete" on public.reminders for delete using (auth.role() = 'authenticated');
 

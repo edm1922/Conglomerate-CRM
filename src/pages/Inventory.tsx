@@ -31,6 +31,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Building,
   Search,
   Filter,
@@ -40,7 +48,8 @@ import {
   Edit,
   Trash2,
   GitCompare,
-  History
+  History,
+  Bookmark
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -312,7 +321,7 @@ export default function Inventory() {
                   {errors.lot_number && <p className="text-sm text-red-500">{errors.lot_number.message}</p>}
                 </div>
               </div>
-              <div className="space.y-2">
+              <div className="space-y-2">
                 <Label htmlFor="size">Size (sqm)</Label>
                 <Input id="size" type="number" {...register("size", { valueAsNumber: true })} />
                 {errors.size && <p className="text-sm text-red-500">{errors.size.message}</p>}
@@ -381,6 +390,73 @@ export default function Inventory() {
         </CardContent>
       </Card>
 
+      {/* Simplified table view for lots */}
+      <Card>
+        <CardContent>
+          {lotsLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <p>Loading lots...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Block</TableHead>
+                  <TableHead>Lot</TableHead>
+                  <TableHead>Size</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredLots.map((lot) => (
+                  <TableRow key={lot.id}>
+                    <TableCell className="font-medium">{lot.block_number}</TableCell>
+                    <TableCell>{lot.lot_number}</TableCell>
+                    <TableCell>{lot.size} sqm</TableCell>
+                    <TableCell>{formatPrice(lot.price)}</TableCell>
+                    <TableCell>{getStatusBadge(lot.status)}</TableCell>
+                    <TableCell>{lot.location || "N/A"}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { setEditingLot(lot); setEditDialogOpen(true); }}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        {lot.status === "available" && (
+                          <Button variant="ghost" size="sm" onClick={() => setBookingLot(lot)}>
+                            <Bookmark className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm("Are you sure?")) {
+                              if (lot.status === 'reserved') {
+                                unreserveMutation.mutate(lot.id);
+                              } else {
+                                deleteMutation.mutate(lot.id);
+                              }
+                            }
+                          }}
+                          disabled={lot.status === 'sold'}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Keep the existing card view commented out for reference */}
+      {/* 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredLots.map((lot) => (
           <Card key={lot.id} className="hover:shadow-md transition-shadow">
@@ -440,6 +516,7 @@ export default function Inventory() {
           </Card>
         ))}
       </div>
+      */}
 
       {comparisonList.length > 0 && (
         <LotComparison

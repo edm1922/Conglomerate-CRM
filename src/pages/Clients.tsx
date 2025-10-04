@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listClients, createClient, updateClient, deleteClient, onClientsChange, listDocumentsByClient, insertDocumentRecord, deleteDocument, updateDocument } from "@/services/clients";
+import { listAvailableLots } from "@/services/lots";
 import { uploadClientDocument, createSignedUrl, deleteClientDocument } from "@/services/storage";
 import { CreateClientSchema, UpdateClientSchema, type CreateClient, type UpdateClient, CreateCommunicationSchema, type CreateCommunication } from "@/types/validation";
-import { Client as ClientEntity, Document as DocumentEntity, Communication as CommunicationEntity } from "@/types/entities";
+import { Client as ClientEntity, Document as DocumentEntity, Communication as CommunicationEntity, Lot } from "@/types/entities";
 import { listCommunications, createCommunication } from "@/services/communications";
 import CommunicationList from "@/components/communications/CommunicationList";
 import CommunicationForm from "@/components/communications/CommunicationForm";
@@ -47,7 +48,9 @@ import {
   Edit,
   CheckCircle,
   Mail,
-  MessageSquare
+  MessageSquare,
+  Ruler,
+  MapPin
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -59,7 +62,8 @@ export default function Clients() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false); // For "Add New Client" dialog
+  const [clientDetailsDialogOpen, setClientDetailsDialogOpen] = useState(false); // For client details dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientEntity | null>(null);
   const [selectedClient, setSelectedClient] = useState<ClientEntity | null>(null);
@@ -67,6 +71,8 @@ export default function Clients() {
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [smsDialogOpen, setSmsDialogOpen] = useState(false);
+  const [bookingLot, setBookingLot] = useState<Lot | null>(null);
+  const [lotSelectionDialogOpen, setLotSelectionDialogOpen] = useState(false);
 
   const { data: clientsData = [], isLoading: clientsLoading, isError, error } = useQuery({
     queryKey: ["clients"],
@@ -91,7 +97,7 @@ export default function Clients() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       reset();
-      setDialogOpen(false);
+      setCreateDialogOpen(false);
       toast({ title: "Success", description: "Client created successfully." });
     },
     onError: (error: Error) => {
@@ -232,7 +238,7 @@ export default function Clients() {
           <h1 className="text-3xl font-bold text-foreground">Client Profiles</h1>
           <p className="text-muted-foreground">Manage client information and documents</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="w-4 h-4" />
@@ -257,6 +263,7 @@ export default function Clients() {
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input id="phone" {...register("phone")} />
+                {errors.phone && <p className="text-sm text-red-500">{errors.phone.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>
@@ -271,7 +278,7 @@ export default function Clients() {
       </div>
 
       <Card>
-        <CardContent className="p-4">
+        <CardHeader>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
@@ -281,104 +288,193 @@ export default function Clients() {
               className="pl-10"
             />
           </div>
+        </CardHeader>
+        <CardContent>
+          {clientsLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <p>Loading clients...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Total Investment</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredClients.map((client) => (
+                  <TableRow key={client.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setSelectedClient(client); setClientDetailsDialogOpen(true); }}>
+                    <TableCell className="font-medium">{client.name}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {client.email && <div>{client.email}</div>}
+                        {client.phone && <div>{client.phone}</div>}
+                      </div>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(client.status)}</TableCell>
+                    <TableCell>{formatCurrency(client.total_investment)}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedClient(client); setClientDetailsDialogOpen(true); }}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
-          <Card key={client.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                    <UserCircle className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{client.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{client.email}</p>
-                  </div>
-                </div>
-                {getStatusBadge(client.status)}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-sm text-muted-foreground">Phone: {client.phone}</div>
-              <div className="text-sm"><strong>Total Investment:</strong> {formatCurrency(client.total_investment)}</div>
-              <div className="text-xs text-muted-foreground">Registered: {new Date(client.created_at).toLocaleDateString()}</div>
-              <Button variant="outline" className="w-full gap-2" onClick={() => setSelectedClient(client)}>
-                <Eye className="w-4 h-4" />
-                View Profile
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       {selectedClient && (
-        <Dialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <Dialog open={clientDetailsDialogOpen} onOpenChange={(open) => { 
+          setClientDetailsDialogOpen(open); 
+          if (!open) {
+            setSelectedClient(null);
+            setEditingClient(null);
+          }
+        }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-                <div className="flex justify-between items-start">
-                    <DialogTitle className="flex items-center gap-3">
-                        <UserCircle className="w-6 h-6" />
-                        {selectedClient.name}
-                    </DialogTitle>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="icon" onClick={() => setEmailDialogOpen(true)}>
-                            <Mail className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" onClick={() => setSmsDialogOpen(true)}>
-                            <MessageSquare className="w-4 h-4" />
-                        </Button>
-                    </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="flex items-center gap-2">
+                    <UserCircle className="w-6 h-6" />
+                    {selectedClient.name}
+                  </DialogTitle>
+                  <div className="text-sm text-muted-foreground">{selectedClient.email} | {selectedClient.phone}</div>
                 </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setEditingClient(selectedClient); }}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => {
+                    if (confirm("Are you sure you want to delete this client?")) {
+                      deleteMutation.mutate(selectedClient.id);
+                    }
+                  }}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </DialogHeader>
-            <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="profile">Profile Info</TabsTrigger>
-                <TabsTrigger value="documents">Documents</TabsTrigger>
-                <TabsTrigger value="communications">Communications</TabsTrigger>
-                <TabsTrigger value="lots">Booked Lots</TabsTrigger>
-                <TabsTrigger value="payments">Payment History</TabsTrigger>
-              </TabsList>
-              <TabsContent value="profile" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Email</Label><Input value={selectedClient.email || ''} readOnly /></div>
-                  <div><Label>Phone</Label><Input value={selectedClient.phone || ''} readOnly /></div>
-                  <div className="col-span-2"><Label>Address</Label><Input value={selectedClient.address || ''} readOnly /></div>
-                  <div><Label>Status</Label><div className="pt-2">{getStatusBadge(selectedClient.status)}</div></div>
-                  <div><Label>Date Registered</Label><Input value={new Date(selectedClient.created_at).toLocaleDateString()} readOnly /></div>
+            
+            {editingClient ? (
+              <form onSubmit={handleSubmit(handleUpdateSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Full Name</Label>
+                  <Input id="edit-name" defaultValue={editingClient.name} {...register("name")} />
+                  {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
                 </div>
-              </TabsContent>
-              <TabsContent value="documents" className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold">KYC Documents</h3>
-                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
-                  <Button size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="w-4 h-4" />
-                    Upload Document
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input id="edit-email" type="email" defaultValue={editingClient.email || ""} {...register("email")} />
+                  {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone Number</Label>
+                  <Input id="edit-phone" defaultValue={editingClient.phone || ""} {...register("phone")} />
+                  {errors.phone && <p className="text-sm text-red-500">{errors.phone.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Textarea id="edit-address" defaultValue={editingClient.address || ""} {...register("address")} />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setEditingClient(null)}>Cancel</Button>
+                  <Button type="submit" disabled={updateMutation.isPending}>
+                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>
-                <DocumentsTable clientId={selectedClient.id} />
-              </TabsContent>
-              <TabsContent value="communications" className="space-y-4">
-                <CommunicationsTab clientId={selectedClient.id} />
-              </TabsContent>
-              <TabsContent value="lots" className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold">Booked Properties</h3>
-                  <Button size="sm" className="gap-2" onClick={() => setBookingDialogOpen(true)}>
-                    <Plus className="w-4 h-4" />
-                    Book a Lot
-                  </Button>
-                </div>
-                <BookedLotsTab clientId={selectedClient.id} />
-              </TabsContent>
-              <TabsContent value="payments" className="space-y-4">
-                <h3 className="font-semibold">Payment History</h3>
-                <p className="text-muted-foreground">No payment history yet.</p>
-              </TabsContent>
-            </Tabs>
+              </form>
+            ) : (
+              <Tabs defaultValue="overview" className="w-full">
+                <TabsList className="grid w-full grid-cols-6">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="documents">Documents</TabsTrigger>
+                  <TabsTrigger value="communications">Communications</TabsTrigger>
+                  <TabsTrigger value="lots">Lots</TabsTrigger>
+                  <TabsTrigger value="payments">Payments</TabsTrigger>
+                  <TabsTrigger value="actions">Actions</TabsTrigger>
+                </TabsList>
+                <TabsContent value="overview" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Contact Information</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div><span className="font-medium">Email:</span> {selectedClient.email || "N/A"}</div>
+                        <div><span className="font-medium">Phone:</span> {selectedClient.phone || "N/A"}</div>
+                        <div><span className="font-medium">Address:</span> {selectedClient.address || "N/A"}</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Client Stats</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div><span className="font-medium">Status:</span> {getStatusBadge(selectedClient.status)}</div>
+                        <div><span className="font-medium">Total Investment:</span> {formatCurrency(selectedClient.total_investment)}</div>
+                        <div><span className="font-medium">Client Since:</span> {new Date(selectedClient.created_at).toLocaleDateString()}</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+                <TabsContent value="documents" className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold">KYC Documents</h3>
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+                    <Button size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="w-4 h-4" />
+                      Upload Document
+                    </Button>
+                  </div>
+                  <DocumentsTable clientId={selectedClient.id} />
+                </TabsContent>
+                <TabsContent value="communications" className="space-y-4">
+                  <CommunicationsTab clientId={selectedClient.id} />
+                </TabsContent>
+                <TabsContent value="lots" className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold">Booked Properties</h3>
+                    <Button size="sm" className="gap-2" onClick={() => setLotSelectionDialogOpen(true)}>
+                      <Plus className="w-4 h-4" />
+                      Book a Lot
+                    </Button>
+                  </div>
+                  <BookedLotsTab clientId={selectedClient.id} />
+                </TabsContent>
+                <TabsContent value="payments" className="space-y-4">
+                  <h3 className="font-semibold">Payment History</h3>
+                  <p className="text-muted-foreground">No payment history yet.</p>
+                </TabsContent>
+                <TabsContent value="actions" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Communication</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <Button className="w-full gap-2" variant="outline" onClick={() => setEmailDialogOpen(true)}>
+                          <Mail className="w-4 h-4" />
+                          Send Email
+                        </Button>
+                        <Button className="w-full gap-2" variant="outline" onClick={() => setSmsDialogOpen(true)}>
+                          <MessageSquare className="w-4 h-4" />
+                          Send SMS
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
           </DialogContent>
         </Dialog>
       )}
@@ -403,8 +499,33 @@ export default function Clients() {
         />
       )}
 
-      {bookingDialogOpen && selectedClient && (
-        <ClientLotBookingDialog client={selectedClient} onBooking={() => setBookingDialogOpen(false)} />
+      {bookingDialogOpen && selectedClient && bookingLot && (
+        <ClientLotBookingDialog 
+          lot={bookingLot} 
+          onBooking={() => {
+            setBookingDialogOpen(false);
+            setBookingLot(null);
+          }} 
+        />
+      )}
+
+      {/* Lot Selection Dialog */}
+      {lotSelectionDialogOpen && selectedClient && (
+        <LotSelectionDialog 
+          client={selectedClient}
+          open={lotSelectionDialogOpen}
+          onOpenChange={(open) => {
+            setLotSelectionDialogOpen(open);
+            if (!open) {
+              setBookingLot(null);
+            }
+          }}
+          onLotSelect={(lot) => {
+            setBookingLot(lot);
+            setLotSelectionDialogOpen(false);
+            setBookingDialogOpen(true);
+          }}
+        />
       )}
     </div>
   );
@@ -462,7 +583,7 @@ function DocumentsTable({ clientId }: { clientId: string }) {
             <TableCell>{new Date(doc.uploaded_at).toLocaleDateString()}</TableCell>
             <TableCell><Badge variant={doc.status === "verified" ? "success" : "warning"}>{doc.status}</Badge></TableCell>
             <TableCell className="space-x-2">
-              <Button variant="ghost" size="sm" onClick={async () => { window.open(await createSignedurl(doc.file_path), "_blank"); }}>
+              <Button variant="ghost" size="sm" onClick={async () => { window.open(await createSignedUrl(doc.file_path), "_blank"); }}>
                 <Download className="w-4 h-4" />
               </Button>
               {doc.status !== "verified" && (
@@ -590,3 +711,68 @@ function SmsDialog({ client, open, onOpenChange, onSubmit, isSending }: {
         </Dialog>
     );
 }
+
+function LotSelectionDialog({ 
+  client, 
+  open, 
+  onOpenChange,
+  onLotSelect
+}: { 
+  client: ClientEntity;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onLotSelect: (lot: Lot) => void;
+}) {
+  const { data: lots = [], isLoading } = useQuery({
+    queryKey: ["available-lots"],
+    queryFn: listAvailableLots,
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Select a Lot for {client.name}</DialogTitle>
+          <p className="text-sm text-muted-foreground">Choose an available lot to book for this client</p>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <p>Loading available lots...</p>
+          </div>
+        ) : lots.length === 0 ? (
+          <div className="text-center py-8">
+            <Building className="w-12 h-12 mx-auto text-muted-foreground" />
+            <h3 className="mt-4 font-medium">No available lots</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              There are currently no lots available for booking.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {lots.map((lot) => (
+              <Card 
+                key={lot.id} 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => onLotSelect(lot)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Block {lot.block_number}, Lot {lot.lot_number}</CardTitle>
+                    <Badge variant="success">Available</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm"><Ruler className="w-4 h-4 text-muted-foreground" /><span>{lot.size} sqm</span></div>
+                  <div className="flex items-center gap-2"><span className="text-sm font-bold text-muted-foreground">₱</span><span className="font-semibold">{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0 }).format(lot.price)}</span></div>
+                  {lot.location && <div className="flex items-center gap-2 text-sm text-muted-foreground"><MapPin className="w-4 h-4" /><span>{lot.location}</span></div>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+

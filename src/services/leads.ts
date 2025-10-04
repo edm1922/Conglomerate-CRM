@@ -9,6 +9,7 @@ export interface CreateLeadInput {
   status?: Lead["status"];
   notes?: string;
   assigned_to?: string;
+  score?: number;
 }
 
 export interface UpdateLeadInput extends Partial<CreateLeadInput> {}

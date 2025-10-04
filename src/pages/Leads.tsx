@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listLeads, createLead, updateLead, deleteLead, onLeadsChange, convertLeadToClient } from "@/services/leads";
+import { listLeads, createLead, updateLead, deleteLead, onLeadsChange, convertLeadToClient, type CreateLeadInput, type UpdateLeadInput } from "@/services/leads";
 import { listReminders, createReminder, updateReminder, deleteReminder } from "@/services/reminders";
 import { useAppStore } from "@/stores";
 import { CreateLeadSchema, UpdateLeadSchema, type CreateLead, type UpdateLead, CreateReminderSchema, type CreateReminder } from "@/types/validation";
@@ -58,7 +58,6 @@ import {
 } from "lucide-react";
 import { calculateLeadScore } from "@/lib/utils";
 import type { Lead as LeadEntity, Reminder as ReminderEntity } from "@/types/entities";
-import { runAutomatedFollowUp } from "@/services/workflows";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@supabase/auth-helpers-react";
 
@@ -268,7 +267,16 @@ export default function Leads() {
   const createMutation = useMutation({
     mutationFn: (newLead: CreateLead) => {
         const score = calculateLeadScore(newLead);
-        return createLead({ ...newLead, score });
+        return createLead({
+          name: newLead.name,
+          email: newLead.email,
+          phone: newLead.phone,
+          source: newLead.source,
+          status: newLead.status,
+          notes: newLead.notes,
+          assigned_to: newLead.assigned_to,
+          score: score
+        });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
@@ -284,7 +292,16 @@ export default function Leads() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateLead }) => {
         const score = calculateLeadScore(data);
-        return updateLead(id, { ...data, score });
+        return updateLead(id, {
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          source: data.source,
+          status: data.status,
+          notes: data.notes,
+          assigned_to: data.assigned_to,
+          score: score
+        });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
@@ -343,16 +360,7 @@ export default function Leads() {
     }
   });
   
-  const automatedFollowUpMutation = useMutation({
-    mutationFn: runAutomatedFollowUp,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reminders"] });
-      toast({ title: "Success", description: "Automated follow-up completed successfully!" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: `Automated follow-up failed: ${error.message}`, variant: "destructive" });
-    },
-  });
+  // Remove the automatedFollowUpMutation entirely
 
   const handleCreateSubmit = (values: CreateLead) => {
     createMutation.mutate(values);
@@ -396,11 +404,11 @@ export default function Leads() {
   const filteredLeads = useMemo(() => {
     const { status, source, search } = filters.leads;
     return (leadsData || []).filter((lead) => {
-      const matchesStatus = status === "all" || (lead.status || "").toLowerCase() === status.toLowerCase();
-      const matchesSource = source === "all" || (lead.source || "").toLowerCase() === source.toLowerCase();
-      const matchesSearch = (lead.name || "").toLowerCase().includes(search.toLowerCase()) ||
-                           (lead.email || "").toLowerCase().includes(search.toLowerCase()) ||
-                           (lead.phone || "").includes(search);
+      const matchesStatus = (status === "all") || ((lead.status || "").toLowerCase() === (status || "").toLowerCase());
+      const matchesSource = (source === "all") || ((lead.source || "").toLowerCase() === (source || "").toLowerCase());
+      const matchesSearch = (lead.name || "").toLowerCase().includes((search || "").toLowerCase()) ||
+                           (lead.email || "").toLowerCase().includes((search || "").toLowerCase()) ||
+                           (lead.phone || "").includes(search || "");
       return matchesStatus && matchesSearch && matchesSource;
     });
   }, [leadsData, filters.leads]);
@@ -432,10 +440,6 @@ export default function Leads() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button className="gap-2" variant="outline" onClick={() => automatedFollowUpMutation.mutate()} disabled={automatedFollowUpMutation.isPending}>
-                <Zap className="w-4 h-4" />
-                Run Automated Follow-up
-            </Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
@@ -565,7 +569,7 @@ export default function Leads() {
                       </div>
                     </TableCell>
                     <TableCell><Badge>{lead.source}</Badge></TableCell>
-                    <TableCell>{getStatusBadge(lead.status.charAt(0).toUpperCase() + lead.status.slice(1))}</TableCell>
+                    <TableCell>{getStatusBadge((lead.status || "").charAt(0).toUpperCase() + (lead.status || "").slice(1))}</TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         <TrendingUp className="w-4 h-4 text-green-500" />

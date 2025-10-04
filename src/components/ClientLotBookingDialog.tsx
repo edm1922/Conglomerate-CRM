@@ -29,7 +29,7 @@ const BookingSchema = z.object({
 type BookingForm = z.infer<typeof BookingSchema>;
 
 interface ClientLotBookingDialogProps {
-  lot: Lot;
+  lot?: Lot;
   onBooking?: () => void;
 }
 
@@ -67,8 +67,17 @@ function ClientLotBookingDialog({
   });
 
   const onSubmit = (data: BookingForm) => {
-    reserveMutation.mutate({ lotId: lot.id, clientId: data.clientId });
+    if (lot?.id) {
+      reserveMutation.mutate({ lotId: lot.id, clientId: data.clientId });
+    } else {
+      toast({ title: "Error", description: "No lot selected for booking.", variant: "destructive" });
+    }
   };
+
+  // If lot is not provided, don't render the dialog
+  if (!lot) {
+    return null;
+  }
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
