@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '../components/ui/button';
 
 const DataDeletion: React.FC = () => {
   const [content, setContent] = useState('');
@@ -11,16 +10,16 @@ const DataDeletion: React.FC = () => {
       .then(text => {
         // Simple markdown to HTML conversion for headers and lists
         let html = text
-          .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mb-6">$1</h1>')
-          .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold mt-8 mb-4">$1</h2>')
-          .replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold mt-6 mb-3">$1</h3>')
-          .replace(/^\* (.*$)/gim, '<li class="ml-6 list-disc">$1</li>')
-          .replace(/^\- (.*$)/gim, '<li class="ml-6 list-disc">$1</li>')
-          .replace(/<li/g, '<ul class="mb-4"><li')
+          .replace(/^# (.*$)/gim, '<h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1.5rem;">$1</h1>')
+          .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.5rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem;">$1</h2>')
+          .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem;">$1</h3>')
+          .replace(/^\* (.*$)/gim, '<li style="margin-left: 1.5rem; list-style-type: disc;">$1</li>')
+          .replace(/^\- (.*$)/gim, '<li style="margin-left: 1.5rem; list-style-type: disc;">$1</li>')
+          .replace(/<li/g, '<ul style="margin-bottom: 1rem;"><li')
           .replace(/<\/li>/g, '</li></ul>')
           .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
           .replace(/\*(.*)\*/gim, '<em>$1</em>')
-          .replace(/\[(.*)\]\((.*)\)/gim, '<a href="$2" class="text-blue-600 hover:underline">$1</a>')
+          .replace(/\[(.*)\]\((.*)\)/gim, '<a href="$2" style="color: #3b82f6; text-decoration: underline;">$1</a>')
           .replace(/\n\n/gim, '<br /><br />');
         
         setContent(html);
@@ -32,18 +31,20 @@ const DataDeletion: React.FC = () => {
   }, []);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Data Deletion Instructions</h1>
-        <Link to="/">
-          <Button variant="outline">Back to Home</Button>
-        </Link>
+    <div style={{ fontFamily: 'sans-serif', lineHeight: 1.6, color: '#333', maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>Data Deletion Instructions</h1>
+          <Link to="/" style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', textDecoration: 'none', color: '#374151', backgroundColor: 'white' }}>
+            Back to Home
+          </Link>
+        </div>
+        
+        <div 
+          style={{ fontSize: '1.125rem' }}
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
       </div>
-      
-      <div 
-        className="prose prose-lg max-w-none"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
     </div>
   );
 };

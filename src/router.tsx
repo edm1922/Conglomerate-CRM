@@ -162,11 +162,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/data-deletion",
-    element: (
-      <Layout>
-        <DataDeletion />
-      </Layout>
-    ),
+    element: <DataDeletion />,
   },
   {
     path: "/login",
