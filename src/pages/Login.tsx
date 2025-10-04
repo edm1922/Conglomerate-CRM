@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@supabase/auth-helpers-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[hsl(var(--background))]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[hsl(var(--background))]">
       <Card className="w-full max-w-sm card-professional">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-6">
@@ -102,6 +102,11 @@ export default function Login() {
           </Button>
         </CardContent>
       </Card>
+      <div className="mt-6 text-center">
+        <Link to="/privacy-policy" className="text-sm text-gray-600 hover:text-gray-900">
+          Privacy Policy
+        </Link>
+      </div>
     </div>
   );
 }

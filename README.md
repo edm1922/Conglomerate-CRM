@@ -89,6 +89,10 @@ The admin panel is restricted to the email address specified in `VITE_ADMIN_EMAI
 - Manage templates and configurations
 - Export/import system data
 
+## Privacy Policy
+
+This application includes a privacy policy that explains how user data is collected, used, and protected. You can view the full privacy policy at `/privacy-policy` in the application or by accessing the [privacy-policy.md](public/privacy-policy.md) file directly.
+
 ## Security Features
 
 - Environment-based configuration

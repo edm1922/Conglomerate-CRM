@@ -1,4 +1,3 @@
-
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { useUser, useSessionContext } from "@supabase/auth-helpers-react";
 
@@ -16,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 import AppointmentTemplates from "./pages/appointment-templates";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isLoading } = useSessionContext();
@@ -140,6 +140,14 @@ export const router = createBrowserRouter([
           <Reports />
         </Layout>
       </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/privacy-policy",
+    element: (
+      <Layout>
+        <PrivacyPolicy />
+      </Layout>
     ),
   },
   {
