@@ -103,9 +103,9 @@ export default function Login() {
         </CardContent>
       </Card>
       <div className="mt-6 text-center">
-        <Link to="/privacy-policy" className="text-sm text-gray-600 hover:text-gray-900">
-          Privacy Policy
-        </Link>
+        <p className="text-sm text-gray-600">
+          By signing in, you agree to our <Link to="/terms-of-service" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link to="/privacy-policy" className="text-blue-600 hover:underline">Privacy Policy</Link>.
+        </p>
       </div>
     </div>
   );

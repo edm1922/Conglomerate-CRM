@@ -93,6 +93,10 @@ The admin panel is restricted to the email address specified in `VITE_ADMIN_EMAI
 
 This application includes a privacy policy that explains how user data is collected, used, and protected. You can view the full privacy policy at `/privacy-policy` in the application or by accessing the [privacy-policy.md](public/privacy-policy.md) file directly.
 
+## Terms of Service
+
+This application includes terms of service that govern your access to and use of our customer relationship management application. You can view the full terms of service at `/terms-of-service` in the application or by accessing the [terms-of-service.md](public/terms-of-service.md) file directly.
+
 ## Security Features
 
 - Environment-based configuration
